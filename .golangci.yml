@@ -1,0 +1,23 @@
+run:
+    timeout: 3m
+    allow-parallel-runners: true
+    concurrency: 2
+    tests: false
+
+linters:
+    enable-all: true
+    # fast: true
+    disable:
+        - cyclop
+        - depguard
+        - exhaustruct
+        - forbidigo
+        - funlen
+        - gochecknoglobals
+        - godox
+        - gomnd
+        - lll
+        - mnd
+        - tagliatelle
+        - wrapcheck
+        - wsl

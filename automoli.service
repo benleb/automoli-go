@@ -1,0 +1,18 @@
+[Unit]
+Description=AutoMoLi Light Management
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/automoli run --config /etc/automoli/automoli.yaml
+WorkingDirectory=-/tmp
+
+User=automoli
+Group=automoli
+
+Restart=always
+RestartSec=7
+
+[Install]
+WantedBy=multi-user.target

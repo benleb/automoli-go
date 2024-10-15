@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: automoli
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+builds:
+  - binary: automoli
+    env: ["CGO_ENABLED=0"]
+    flags: ["-trimpath"]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    goamd64: [v2, v3]
+
+    # Set the modified timestamp on the output binary, typically
+    # you would do this to ensure a build was reproducible. Pass
+    # empty string to skip modifying the output.
+    # Default is empty string.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+    # by default main.Date is set to the time GoReleaser is run ({{.Date}}),
+    # you can set this to {{.CommitDate}} or just not pass the variable.
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.builtBy=benleb
+      - -X main.buildDate={{.CommitDate}}
+
+universal_binaries:
+  - # Whether to remove the previous single-arch binaries from the artifact list.
+    # If left as false, your end release might have both several macOS archives: amd64, arm64 and all.
+    #
+    # Defaults to false.
+    replace: true
+
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # # use zip for windows archives
+    # format_overrides:
+    #   - goos: windows
+    #     format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
