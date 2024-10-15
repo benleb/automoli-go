@@ -7,6 +7,8 @@
 
 Fully *automatic light management* based on motion, daytime, brightness and even humidity 💦 🚿  
 
+*based on the famous original [ad-AutoMoLi](https://github.com/benleb/ad-automoli) (written in Python as [AppDaemon](https://github.com/AppDaemon/appdaemon) plugin/app)*
+
 🕓 multiple **daytimes** to define different scenes for morning, noon, ...  
 💡 supports **Hue** (for Hue Rooms/Groups) & **Home Assistant** scenes  
 🔌 switches **lights** and **plugs** (with lights)  
@@ -19,13 +21,15 @@ Fully *automatic light management* based on motion, daytime, brightness and even
 
 ## install
 
+via [go install](https://go.dev/ref/mod#go-install)
+
 ```bash
 go install github.com/benleb/automoli-go@latest
 ```
 
 ## run
 
-see the [example config](automoli.yaml) for a basic configuration.
+see the [example config](automoli.yaml) for a multi-room configuration with different daytimes and sensors and settings.
 
 ```bash
 # run
@@ -65,7 +69,9 @@ goreleaser build --clean --snapshot --single-target
 GOOS="linux" GOARCH="amd64" GOAMD64="v3" goreleaser build --clean --snapshot --single-target
 ```
 
-### [ko](https://ko.build) docker image
+### docker image
+
+with [ko](https://ko.build)
 
 ```bash
 # build image and push to registry
