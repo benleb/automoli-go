@@ -13,7 +13,8 @@ before:
     - go generate ./...
 
 builds:
-  - binary: automoli-go
+  - id: automoli
+    binary: "automoli-go_{{ .Os }}_{{ .Arch }}"
     env: ["CGO_ENABLED=0"]
     flags: ["-trimpath"]
     goos: [linux, darwin]
