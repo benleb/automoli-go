@@ -28,7 +28,7 @@ ko build --verbose --base-import-paths --tags dev
 
 ### clone repository
 
-`git clone <https://github.com/benleb/automoli> ~/automoli`
+`git clone https://github.com/benleb/automoli-go ~/automoli`
 
 ### create user and config directory
 
