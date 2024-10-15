@@ -7,8 +7,6 @@
 
 Fully *automatic light management* based on motion, daytime, brightness and even humidity 💦 🚿  
 
-*based on the famous original [ad-AutoMoLi](https://github.com/benleb/ad-automoli) (written in Python as [AppDaemon](https://github.com/AppDaemon/appdaemon) plugin/app)*
-
 🕓 multiple **daytimes** to define different scenes for morning, noon, ...  
 💡 supports **Hue** (for Hue Rooms/Groups) & **Home Assistant** scenes  
 🔌 switches **lights** and **plugs** (with lights)  
@@ -17,7 +15,9 @@ Fully *automatic light management* based on motion, daytime, brightness and even
 🔒 **locks** the light if the light was manually turned on  
 <!-- not yet implemented in the go version: -->
 <!-- 🔍 **automatic** discovery of **lights** and **sensors**   -->
-<!-- ⛰️ **stable** and **tested** by many people with different homes   -->
+<!-- ⛰️ **stable** and **tested** by many people with different homes   -->  
+
+*- successor of the famous original [ad-AutoMoLi](https://github.com/benleb/ad-automoli) (written in Python as [AppDaemon](https://github.com/AppDaemon/appdaemon) plugin/app) -*
 
 ## install
 
