@@ -20,26 +20,45 @@ export KO_DOCKER_REPO=your.registry.io:5000
 ko build --verbose --base-import-paths --tags dev
 ```
 
-## linting
+## run
 
-`golangci-lint run --verbose --enable-all --fix --max-issues-per-linter 0 --max-same-issues 0`
+```bash
+automoli-go --config ~/automoli.yaml
+
+# more options
+automoli-go --help
+```
+
+## lint
+
+```bash
+golangci-lint run --verbose --enable-all --fix --max-issues-per-linter 0 --max-same-issues 0`
+````
 
 ## systemd service example
 
 ### clone repository
 
-`git clone https://github.com/benleb/automoli-go ~/automoli`
+```bash
+git clone https://github.com/benleb/automoli-go ~/automoli
+```
 
 ### create user and config directory
 
-`useradd --system --home-dir /etc/automoli --user-group automoli`  
-`mkdir /etc/automoli && chown automoli:automoli /etc/automoli`
+```bash
+useradd --system --home-dir /etc/automoli --user-group automoli
+mkdir /etc/automoli && chown automoli:automoli /etc/automoli
+```
 
 ### link or copy the systemd service file
 
-`ln -s ~/automoli/automoli.service /etc/systemd/system/automoli.service`
+```bash
+ln -s ~/automoli/automoli.service /etc/systemd/system/automoli.service
+```
 
 ### tests (todo)
 
-`go test -cover ./...`
+```bash
+go test -cover ./...
+```
 
