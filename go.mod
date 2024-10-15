@@ -1,6 +1,6 @@
 module github.com/benleb/automoli-go
 
-go 1.23
+go 1.23.2
 
 require (
 	github.com/charmbracelet/lipgloss v0.13.0
