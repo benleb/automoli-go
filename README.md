@@ -59,16 +59,3 @@ golangci-lint run --verbose --enable-all --fix --max-issues-per-linter 0 --max-s
 ```bash
 go test -cover ./...
 ```
-
-### link or copy the systemd service file
-
-```bash
-ln -s ~/automoli/automoli.service /etc/systemd/system/automoli.service
-```
-
-### tests (todo)
-
-```bash
-go test -cover ./...
-```
-
