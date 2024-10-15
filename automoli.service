@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/automoli run --config /etc/automoli/automoli.yaml
+ExecStart=/usr/local/bin/automoli-go run --config /etc/automoli/automoli.yaml
 WorkingDirectory=-/tmp
 
 User=automoli
