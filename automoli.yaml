@@ -1,0 +1,123 @@
+automoli:
+    disabled_by: { input_boolean.automoli: ["off"] }
+    stats_interval: 37s
+
+    # delay: 300s
+    transition: 2s
+    # flash: short
+
+    verbose: false
+
+homeassistant:
+    url: "https://hass.home.io"
+    token: "eyL0L...."
+
+rooms:
+    - name: Livingroom
+      delay: 900s
+      lights: [light.livingroom]
+      motion_sensors:
+          - "binary_sensor.motion_sensor_158...."
+          - "binary_sensor.motion_sensor_158...."
+          - "binary_sensor.motion_sensor_livingroom_terrace"
+      daytimes:
+          - { start: "06:30", name: morning, target: "scene.lr_evening" }
+          - { start: "07:30", name: day, target: "scene.lr_daytime" }
+          - { start: "19:45", name: evening, target: "scene.lr_evening" }
+          - { start: "23:00", name: night, brightness: 0 }
+
+    - name: Hallway
+      alias: [flur]
+      delay: 45s
+      lights: ["light.flur"]
+      motion_sensors: ["binary_sensor.motion_sensor_hallway"]
+      daytimes:
+          - { start: "06:30", name: morning, brightness: 45 }
+          - { start: "07:30", name: day, target: "scene.hw_daytime" }
+          - { start: "20:00", name: evening, brightness: 60 }
+          - { start: "23:00", name: night, target: "scene.hw_nighttime", delay: 35s }
+
+    - name: Bathroom
+      delay: 185s
+      #   dim:
+      #       method: transition
+      #       brightness_step_pct: -30
+      #       seconds_before: 15
+      humidity_threshold: 73
+      lights: [light.bad]
+      motion_sensors: [binary_sensor.motion_sensor_158...., binary_sensor.motion_sensor_bathroom]
+      humidity_sensors: [sensor.humidity_158...]
+      daytimes:
+          - { start: "05:30", name: morning, brightness: 65 }
+          - { start: "06:30", name: day, target: "scene.br_daytime" }
+          - { start: "20:30", name: evening, brightness: 90 }
+          - { start: "23:00", name: night, delay: 99s, brightness: 75 }
+
+    - name: Kitchen
+      delay: 185s
+      #   dim:
+      #       method: transition
+      #       brightness_step_pct: -30
+      #       seconds_before: 15
+      lights: [light.kitchen_ceiling, light.kitchen_workspace]
+      motion_sensors: [binary_sensor.motion_sensor_kitchen, binary_sensor.motion_sensor_158...]
+      daytimes:
+          - { start: "05:30", name: morning, brightness: 65 }
+          - { start: "07:30", name: day, target: "scene.kt_daytime" }
+          - { start: "21:00", name: evening, brightness: 70 }
+          - { start: "23:30", name: night, delay: 70s, brightness: 70 }
+
+    - name: Bedroom
+      alias: [schlafzimmer]
+      delay: 180s
+      #   dim:
+      #       method: transition
+      #       brightness_step_pct: -30
+      #       seconds_before: 15
+      lights: ["light.schlafzimmer"]
+      motion_sensors: ["binary_sensor.motion_sensor_158...."]
+      motion_state_on: "on"
+      motion_state_off: "off"
+      daytimes:
+          - { start: "07:50", name: morning, brightness: 20 }
+          - { start: "08:00", name: day, target: "scene.bed_daytime" }
+          - { start: "21:30", name: evening, brightness: 20 }
+          - { start: "22:30", name: night, brightness: 0 }
+
+    - name: Office
+      alias: ["buero", "buro"]
+      lights: ["light.buro"]
+      motion_sensors: ["binary_sensor.motion_sensor_office_table"]
+      #   dim:
+      #       method: transition
+      #       seconds_before: 15
+      daytimes:
+          - { start: "05:30", name: morning, brightness: 0 }
+          - { start: "07:15", name: workhours, delay: 10m, target: "scene.of_work" }
+          - { start: "17:30", name: day, target: "scene.of_work" }
+          - { start: "19:30", name: evening, brightness: 70 }
+          - { start: "20:00", name: night, brightness: 0 }
+
+    - name: Diningroom
+      alias: [esszimmer]
+      disable_hue_groups: true
+      night_mode:
+          entity: input_boolean.automoli_night_mode
+          light: 10
+      lights: ["light.esszimmer", "light.dining_room_hama_plug"]
+      #   dim:
+      #       method: transition
+      #       brightness_step_pct: -30
+      #       seconds_before: 15
+      motion_sensors:
+          - "binary_sensor.motion_sensor_158...."
+          - "binary_sensor.motion_sensor_158...."
+          - "binary_sensor.lumi_motion_ac02_motion"
+      motion_state_on: "on"
+      motion_state_off: "off"
+      daytimes:
+          - { start: "05:30", name: morning, brightness: 20 }
+          - { start: "08:00", name: workhours, target: "scene.dr_daytime", delay: 1200s, flash: short }
+          - { start: "18:00", name: day, target: "scene.dr_daytime", delay: 125s }
+          - { start: "19:45", name: evening, target: "scene.dr_evening", delay: 420s }
+          - { start: "23:23", name: nightly, target: "scene.dr_nighttime", delay: 137s }
