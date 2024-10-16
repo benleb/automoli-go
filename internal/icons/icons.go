@@ -33,6 +33,7 @@ const (
 
 	Bath   = "🛀"
 	Broom  = "🧹"
+	Door   = "🚪"
 	Splash = "💦"
 	Home   = "🏠"
 	Call   = "📞"
