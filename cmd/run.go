@@ -24,9 +24,10 @@ var runCmd = &cobra.Command{
 		// print header/logo
 		randHeaderID, _ := rand.Int(rand.Reader, big.NewInt(int64(len(automoli.LogoHeader))))
 		headerLogo := automoli.LogoHeader[randHeaderID.Int64()]
-		fmt.Println(lipgloss.NewStyle().Padding(2, 4, 3).Render(headerLogo))
 
-		// global log settings & style
+		fmt.Println(lipgloss.NewStyle().Padding(2, 4).Render(headerLogo))
+
+		// general log settings & style
 		var logLevel log.Level
 
 		switch {
