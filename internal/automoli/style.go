@@ -69,7 +69,7 @@ var (
 			Render
 )
 
-var LogoHeader = []string{headerIsom1, headerModular, headerRectangles}
+var LogoHeader = []string{headerIsom1} // , headerModular, headerRectangles}
 
 const headerIsom1 = `
      ___           ___           ___           ___           ___           ___           ___
