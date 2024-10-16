@@ -26,10 +26,6 @@ func main() {
 
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	// // save default foreground color and change it to light gray
-	// defaultForeground := termenv.ForegroundColor()
-	// termenv.DefaultOutput().SetForegroundColor(termenv.RGBColor("#999"))
-
 	// signal handler channel
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -42,14 +38,8 @@ func main() {
 
 		// cmd.GracefulShutdown()
 
-		// // reset/restore default foreground color
-		// termenv.DefaultOutput().SetForegroundColor(defaultForeground)
-		// termenv.DefaultOutput().Reset()
-
 		os.Exit(0)
 	}()
-
-	termenv.DefaultOutput().ClearScreen()
 
 	cmd.Execute()
 }
