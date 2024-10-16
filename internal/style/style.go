@@ -19,7 +19,7 @@ var (
 	HABlue  = lipgloss.Color("#1DAEEF")
 	HAStyle = lipgloss.NewStyle().Foreground(HABlue)
 
-	DarkDivider        = Gray(6).SetString("|")
+	DarkDivider        = Gray(6).SetString("⁞")
 	DarkerDivider      = Gray(3).SetString("|")
 	DarkIndicatorLeft  = LightGray.SetString("←")
 	DarkIndicatorRight = LightGray.SetString("→")
