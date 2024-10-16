@@ -60,6 +60,8 @@ type AutoMoLi struct {
 }
 
 func New() *AutoMoLi {
+	coloredAppName := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")).SetString(models.AppName)
+
 	aml := &AutoMoLi{
 		Config: &Config{
 			StatsInterval: viper.GetDuration("automoli.defaults.stats_interval"),
@@ -78,7 +80,7 @@ func New() *AutoMoLi {
 		daytimeSwitcher: gocron.NewScheduler(time.UTC),
 
 		style: lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")),
-		Pr:    models.Printer.WithPrefix(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")).Faint(true).Render(models.AppName)),
+		Pr:    models.Printer.WithPrefix(coloredAppName.Faint(true).Render()),
 
 		startTime: time.Now(),
 	}
@@ -151,8 +153,6 @@ func New() *AutoMoLi {
 		fmt.Println(room.GetFmtRoomConfig())
 	}
 
-	fmt.Println()
-
 	// get all lights from all rooms
 	allLights := mapset.NewSet[homeassistant.EntityID]()
 	for _, room := range aml.rooms {
@@ -161,20 +161,29 @@ func New() *AutoMoLi {
 
 	// print loaded rooms, lights & sensors
 	intro := strings.Builder{}
-	intro.WriteString(icons.Home + " ")
+	intro.WriteString(coloredAppName.Render())
+	intro.WriteString(" " + style.DarkDivider.String() + " ")
+
+	// magic hex code
+	intro.WriteString(" " + icons.Home + " ")
+	intro.WriteString(style.Bold(aml.createMagicHouseID(len(aml.rooms), allLights.Cardinality(), len(aml.roomSensorEvents))) + " ")
+	// rooms
+	intro.WriteString(" " + style.DarkDivider.String() + " ")
+	intro.WriteString(" " + icons.Door + " ")
 	intro.WriteString(style.Bold(strconv.Itoa(len(aml.rooms))))
-	intro.WriteString(" rooms | ")
-	intro.WriteString(icons.LightOn + " ")
+	intro.WriteString(style.Gray(8).Render(" rooms "))
+	// lights
+	intro.WriteString(" " + style.DarkDivider.String() + " ")
+	intro.WriteString(" " + icons.LightOn + " ")
 	intro.WriteString(style.Bold(strconv.Itoa(allLights.Cardinality())))
-	intro.WriteString(" lights | ")
-	intro.WriteString(icons.Motion + " ")
+	intro.WriteString(style.Gray(8).Render(" lights "))
+	// sensors
+	intro.WriteString(" " + style.DarkDivider.String() + " ")
+	intro.WriteString(" " + icons.Motion + " ")
 	intro.WriteString(style.Bold(strconv.Itoa(len(aml.roomSensorEvents))))
-	intro.WriteString(" sensors ")
-	intro.WriteString(style.DarkDivider.String() + style.DarkDivider.String() + " ")
-	intro.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#CC99CC")).Render(time.Now().Format("15:04:05")))
-	intro.WriteString(" 🕰️")
-	intro.WriteString("\n")
-	aml.Pr.Print(intro.String())
+	intro.WriteString(style.Gray(8).Render(" sensors "))
+
+	fmt.Println(lipgloss.NewStyle().Padding(1, 0).Render(intro.String()))
 
 	// start daytime switcher
 	aml.daytimeSwitcher.StartAsync()
@@ -192,6 +201,25 @@ func New() *AutoMoLi {
 	}
 
 	return aml
+}
+
+// createMagicHouseID creates a magic house id based on the number of rooms, lights and sensors.
+// The ID is a single, short, unique but also stable identifier for the current configuration of rooms, lights and sensors.
+func (aml *AutoMoLi) createMagicHouseID(rooms int, lights int, sensors int) string {
+	// multiply the number of rooms, lights and sensors to get a unique but stable number
+	houseSeed := uint64(rooms * lights * sensors)
+	if houseSeed == 0 {
+		log.Error("rooms, lights and sensors must be greater than 0")
+
+		return "000"
+	}
+
+	// create a random but stable house id based on the product of rooms, lights and sensors and some magic numbers
+	houseID := uint64(((houseSeed + 137) * (houseSeed + 731)) % 4096)
+
+	log.Debugf("rooms: %d | lights: %d | sensors: %d | house seed: %d | house id: %d", rooms, lights, sensors, houseSeed, houseID)
+
+	return fmt.Sprintf("%03X", houseID)
 }
 
 func (aml *AutoMoLi) createHomeAssistantSession(url, token string) *homeassistant.HomeAssistant {
