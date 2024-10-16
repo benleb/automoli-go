@@ -134,26 +134,26 @@ func (r *Room) findActiveDaytime() int {
 		return r.Daytimes[i].Start.Before(r.Daytimes[j].Start)
 	})
 
-	for idx, dt := range r.Daytimes {
+	for idx, currentDaytime := range r.Daytimes {
 		// get next/following daytime
 		nextIdx := (idx + 1) % len(r.Daytimes)
 		nextDaytime := r.Daytimes[nextIdx]
 
 		// this daytime start is before now
-		startBeforeNow := dt.Start.Before(now)
+		startBeforeNow := currentDaytime.Start.Before(now)
 		// next daytime start is after now
 		nextStartAfterNow := nextDaytime.Start.After(now)
 
 		if startBeforeNow && nextStartAfterNow {
 			// set daytime as active if both conditions are true
-			r.activeDaytimeIndex = slices.Index(r.Daytimes, dt)
+			r.activeDaytimeIndex = slices.Index(r.Daytimes, currentDaytime)
 
 			break
 		}
 
 		// set last daytime as active if no other daytime is
 		if idx == len(r.Daytimes)-1 && r.activeDaytimeIndex == 0 {
-			r.activeDaytimeIndex = slices.Index(r.Daytimes, dt)
+			r.activeDaytimeIndex = slices.Index(r.Daytimes, currentDaytime)
 		}
 	}
 
@@ -475,16 +475,16 @@ func (r *Room) GetFmtRoomConfig() string {
 	// daytimes
 	daytimesList := make([]string, 0)
 
-	for _, dt := range r.Daytimes {
+	for _, currentDaytime := range r.Daytimes {
 		fmtDaytime := strings.Builder{}
-		fmtDaytime.WriteString(dt.Start.Format("15:04"))
+		fmtDaytime.WriteString(currentDaytime.Start.Format("15:04"))
 		// fmtDaytime.WriteString(style.DarkDivider.String())
 		// fmtDaytime.WriteString(style.LightGray.Copy().Render(daytime.Delay.String()))
-		fmtDaytime.WriteString(" " + dt.Name)
+		fmtDaytime.WriteString(" " + currentDaytime.Name)
 		fmtDaytime.WriteString(" " + r.style.Faint(true).Render("|"))
-		fmtDaytime.WriteString(" " + r.FormatDaytimeConfiguration(dt))
+		fmtDaytime.WriteString(" " + r.FormatDaytimeConfiguration(currentDaytime))
 
-		if dt == r.GetActiveDaytime() {
+		if currentDaytime == r.GetActiveDaytime() {
 			daytimesList = append(daytimesList, listItemActive(fmtDaytime.String(), r.color))
 		} else {
 			daytimesList = append(daytimesList, listDaytimeItem(fmtDaytime.String()))

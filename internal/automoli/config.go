@@ -135,38 +135,38 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 	// daytimes
 
 	// settings
-	for _, dt := range room.Daytimes {
+	for _, currentDaytime := range room.Daytimes {
 		// set targets to room lights if not explicitly set
-		if len(dt.Targets) == 0 {
-			dt.Targets = room.Lights
+		if len(currentDaytime.Targets) == 0 {
+			currentDaytime.Targets = room.Lights
 		}
 
 		// set daytime off-delay
-		if dt.Delay == 0 {
-			dt.Delay = room.Delay
+		if currentDaytime.Delay == 0 {
+			currentDaytime.Delay = room.Delay
 		}
 
 		// if a custom service data is set, we use it
 		serviceData := make(map[string]interface{})
 
-		if len(dt.ServiceData) > 0 {
-			serviceData = dt.ServiceData
+		if len(currentDaytime.ServiceData) > 0 {
+			serviceData = currentDaytime.ServiceData
 		}
 
 		// set daytime transition times
-		if dt.Transition == 0 {
-			dt.Transition = room.Transition
+		if currentDaytime.Transition == 0 {
+			currentDaytime.Transition = room.Transition
 		}
 
 		// service_data takes precedence over transition time wrapper field
 		if _, ok := serviceData["transition"]; !ok {
-			serviceData["transition"] = dt.Transition.Seconds()
+			serviceData["transition"] = currentDaytime.Transition.Seconds()
 		}
 
 		// set brightness_pct
-		if dt.BrightnessPct != nil && *dt.BrightnessPct > 0 {
+		if currentDaytime.BrightnessPct != nil && *currentDaytime.BrightnessPct > 0 {
 			// restrict brightness to 0-100
-			brightnessPct := uint8(math.Min(math.Max(float64(*dt.BrightnessPct), 0), 100))
+			brightnessPct := uint8(math.Min(math.Max(float64(*currentDaytime.BrightnessPct), 0), 100))
 
 			// service_data takes precedence over brightness wrapper field
 			if _, ok := serviceData["brightness_pct"]; !ok {
@@ -174,7 +174,7 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 			}
 		}
 
-		dt.ServiceData = serviceData
+		currentDaytime.ServiceData = serviceData
 	}
 
 	// for _, daytime := range room.Daytimes {
