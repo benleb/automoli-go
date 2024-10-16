@@ -207,7 +207,7 @@ func New() *AutoMoLi {
 // The ID is a single, short, unique but also stable identifier for the current configuration of rooms, lights and sensors.
 func (aml *AutoMoLi) createMagicHouseID(rooms int, lights int, sensors int) string {
 	// multiply the number of rooms, lights and sensors to get a unique but stable number
-	houseSeed := uint64(rooms * lights * sensors)
+	houseSeed := int64(rooms * lights * sensors)
 	if houseSeed == 0 {
 		log.Error("rooms, lights and sensors must be greater than 0")
 
@@ -215,7 +215,7 @@ func (aml *AutoMoLi) createMagicHouseID(rooms int, lights int, sensors int) stri
 	}
 
 	// create a random but stable house id based on the product of rooms, lights and sensors and some magic numbers
-	houseID := uint64(((houseSeed + 137) * (houseSeed + 731)) % 4096)
+	houseID := ((houseSeed + 137) * (houseSeed + 731)) % 4096
 
 	log.Debugf("rooms: %d | lights: %d | sensors: %d | house seed: %d | house id: %d", rooms, lights, sensors, houseSeed, houseID)
 
