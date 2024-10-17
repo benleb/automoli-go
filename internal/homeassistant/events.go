@@ -5,8 +5,10 @@ import (
 )
 
 var (
-	EventStateChanged = EventType("state_changed")
-	EventXiaomiMotion = EventType("xiaomi_aqara.motion")
+	EventStateChanged    = EventType("state_changed")
+	EventXiaomiMotion    = EventType("xiaomi_aqara.motion")
+	HomeAssistantStart   = EventType("homeassistant_start")
+	HomeAssistantStarted = EventType("homeassistant_started")
 )
 
 type EventType string
