@@ -1,6 +1,7 @@
 package automoli
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,7 +17,6 @@ import (
 	"github.com/benleb/automoli-go/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
-	"github.com/coder/websocket"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-co-op/gocron"
 	"github.com/mitchellh/mapstructure"
@@ -101,11 +101,6 @@ func New() *AutoMoLi {
 
 	aml.Pr.Infof("%s Home Assistant session created", icons.GreenTick)
 
-	// start watchdog for last event received
-	lastEventReceivedCheckEvery := viper.GetDuration("homeassistant.lastMessageReceived.checkEvery")
-	lastEventReceivedMaxAge := viper.GetDuration("homeassistant.lastMessageReceived.maxAge")
-	go aml.lastEvengtReceivedWatchdog(lastEventReceivedMaxAge, lastEventReceivedCheckEvery)
-
 	//
 	// rooms configuration
 
@@ -166,7 +161,7 @@ func New() *AutoMoLi {
 
 	// magic hex code
 	intro.WriteString(" " + icons.Home + " ")
-	intro.WriteString(style.Bold(aml.createMagicHouseID(len(aml.rooms), allLights.Cardinality(), len(aml.roomSensorEvents))) + " ")
+	intro.WriteString(style.Bold(aml.hashedHouseID(len(aml.rooms), allLights.Cardinality(), len(aml.roomSensorEvents))) + " ")
 	// rooms
 	intro.WriteString(" " + style.DarkDivider.String() + " ")
 	intro.WriteString(" " + icons.Door + " ")
@@ -195,36 +190,30 @@ func New() *AutoMoLi {
 	go aml.statsTicker()
 
 	// subscribe to events
-	for eventType := range aml.triggerEvents.Iter() {
-		aml.ha.SubscribeToEvents(eventType, &aml.events)
-		aml.Pr.Infof("subscribed to %s events", style.Bold(string(eventType)))
-	}
+	aml.ha.SubscribeToEvents(aml.triggerEvents)
 
 	return aml
 }
 
-// createMagicHouseID creates a magic house id based on the number of rooms, lights and sensors.
+// hashedHouseID creates a magic house id based on the number of rooms, lights and sensors.
 // The ID is a single, short, unique but also stable identifier for the current configuration of rooms, lights and sensors.
-func (aml *AutoMoLi) createMagicHouseID(rooms int, lights int, sensors int) string {
-	// multiply the number of rooms, lights and sensors to get a unique but stable number
-	houseSeed := int64(rooms * lights * sensors)
-	if houseSeed == 0 {
-		log.Error("rooms, lights and sensors must be greater than 0")
+func (aml *AutoMoLi) hashedHouseID(roomCount, lightCount, sensorCount int) string {
+	hashee := fmt.Sprintf("rooms: %d - lights: %d - sensors: %d", roomCount, lightCount, sensorCount)
 
-		return "000"
-	}
+	// create a hash / (full) house id from the hashee string
+	fullHouseID := sha256.New()
+	fullHouseID.Write([]byte(hashee))
+	houseID := fullHouseID.Sum(nil)
 
-	// create a random but stable house id based on the product of rooms, lights and sensors and some magic numbers
-	houseID := ((houseSeed + 137) * (houseSeed + 731)) % 4096
+	log.Debugf("house id: %X", houseID)
 
-	log.Debugf("rooms: %d | lights: %d | sensors: %d | house seed: %d | house id: %d", rooms, lights, sensors, houseSeed, houseID)
-
-	return fmt.Sprintf("%03X", houseID)
+	// create a 3 char hex code from the hash
+	return fmt.Sprintf("%X", houseID)[:3]
 }
 
 func (aml *AutoMoLi) createHomeAssistantSession(url, token string) *homeassistant.HomeAssistant {
 	// create homeassistant session
-	hass, err := homeassistant.New(url, token)
+	hass, err := homeassistant.New(url, token, &aml.events)
 	if err != nil {
 		aml.Pr.Error(err)
 
@@ -296,43 +285,7 @@ func (aml *AutoMoLi) eventHandler() {
 
 		aml.lastEventReceived = time.Now()
 
-		aml.Pr.Debugf("%s no room found for sensor %s", icons.Hae, entityID.FmtShort())
-	}
-}
-
-// LastMessageReceivedWatchdog checks if the last message received is older than 10s and reconnects if so.
-func (aml *AutoMoLi) lastEvengtReceivedWatchdog(maxAge, checkEvery time.Duration) {
-	aml.Pr.Infof("%s starting last message received watchdog | max age: %s | check every: %s", icons.Watchdog, style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
-
-	for {
-		time.Sleep(checkEvery)
-
-		since := time.Since(aml.lastEventReceived)
-		if since > maxAge {
-			aml.Pr.Warnf("❌ no message received for %s - reconnecting", style.Bold(time.Since(aml.lastEventReceived).String()))
-
-			// reconnect
-			if err := aml.ha.Conn.Close(websocket.StatusNormalClosure, "reconnecting"); err != nil {
-				aml.Pr.Errorf("❌ failed to close connection: %+v", err)
-
-				// force close
-				if aml.ha.Conn != nil {
-					aml.Pr.Info("❌ force closing existing connection... %#v", aml.ha.Conn)
-
-					_ = aml.ha.Conn.CloseNow()
-				} else {
-					aml.Pr.Info("❌ no connection to close")
-				}
-			}
-
-			aml.ha = nil
-
-			aml.ha = aml.createHomeAssistantSession(viper.GetString("homeassistant.url"), viper.GetString("homeassistant.token"))
-
-			continue
-		}
-
-		aml.Pr.Debugf("%s %s last message received %s ago | max age: %s | next check: %s", icons.Watchdog, icons.GreenTick.Render(), style.Bold(since.Round(time.Millisecond).String()), style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
+		aml.Pr.Debugf("%s no room found for sensor %v", icons.Hae, entityID)
 	}
 }
 
