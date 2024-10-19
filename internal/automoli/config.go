@@ -85,6 +85,7 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 			mapstructure.StringToTimeHookFunc("15:04"),
 			mapstructure.StringToTimeDurationHookFunc(),
 			mapstructure.TextUnmarshallerHookFunc(),
+			homeassistant.StringToEntityIDHookFunc(),
 		),
 		Result:   &room,
 		Metadata: &metadata,

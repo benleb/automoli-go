@@ -22,7 +22,7 @@ func StringToEntityIDHookFunc() mapstructure.DecodeHookFunc { //nolint:ireturn
 		}
 
 		if rawEntityID, ok := data.(string); ok {
-			return EntityID{ID: rawEntityID}, nil
+			return NewEntityID(rawEntityID)
 		}
 
 		return nil, InvalidEntityID(fmt.Sprint(data))
