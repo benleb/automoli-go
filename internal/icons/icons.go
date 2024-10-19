@@ -22,6 +22,7 @@ const (
 	ConnectionFailed = "🔴"
 	ConnectionOK     = "🟢"
 	ConnectionChain  = "🔗"
+	ReconnectCircle  = "↻"
 
 	// daytime related messages.
 	Alarm = "⏰"
@@ -31,12 +32,16 @@ const (
 	Tick      = "✔"
 	Checklist = "📋"
 
-	Bath   = "🛀"
-	Broom  = "🧹"
-	Door   = "🚪"
-	Splash = "💦"
-	Home   = "🏠"
-	Call   = "📞"
+	Bath    = "🛀"
+	Broom   = "🧹"
+	Door    = "🚪"
+	Glasses = "👓"
+	Key     = "🔑"
+	Rocket  = "🚀"
+	Shrug   = "🤷‍♀️"
+	Splash  = "💦"
+	Home    = "🏠"
+	Call    = "📞"
 
 	Stopwatch = "⏱️"
 	Sub       = "🚇"
