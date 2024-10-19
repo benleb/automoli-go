@@ -43,7 +43,7 @@ func (m *baseMessage) framelessString() string {
 	out := strings.Builder{}
 	out.WriteString(style.Gray(6).Render("#"))
 	out.WriteString(strconv.FormatInt(m.ID, 10))
-	out.WriteString(haBlue("|"))
+	out.WriteString(style.ColorizeHABlue("|"))
 
 	return out.String()
 }
@@ -57,7 +57,7 @@ func (m *baseMessage) framelessStringWithType() string {
 }
 
 func (m *baseMessage) String() string {
-	return haBlueFrame(m.framelessStringWithType())
+	return style.HABlueFrame(m.framelessStringWithType())
 }
 
 type VersionMsg struct {
@@ -95,25 +95,25 @@ func (m *CallServiceMsg) String() string {
 	serviceData := make([]string, 0)
 	if sd, ok := m.ServiceData.(map[string]interface{}); ok {
 		for k, v := range sd {
-			serviceData = append(serviceData, style.Gray(8).Render(k)+haBlue(":")+fmt.Sprintf("%v", v))
+			serviceData = append(serviceData, style.Gray(8).Render(k)+style.ColorizeHABlue(":")+fmt.Sprintf("%v", v))
 		}
 	}
-	fmtServiceData := strings.Join(serviceData, haBlue("|"))
+	fmtServiceData := strings.Join(serviceData, style.ColorizeHABlue("|"))
 
 	out := strings.Builder{}
 
 	out.WriteString(m.baseMessage.framelessStringWithType())
-	out.WriteString(haBlue("|"))
+	out.WriteString(style.ColorizeHABlue("|"))
 	out.WriteString(style.Gray(6).Render("…") + lipgloss.NewStyle().Foreground(lipgloss.Color("#ddd")).Italic(true).Render(string(m.Service)))
-	out.WriteString(haBlue(" → "))
+	out.WriteString(style.ColorizeHABlue(" → "))
 	out.WriteString(fmt.Sprint(m.Target.EntityID))
 	// out.WriteString(m.Target.EntityID.FmtString())
 
 	if len(serviceData) > 0 {
-		out.WriteString(" " + haBlueFrame(fmtServiceData))
+		out.WriteString(" " + style.HABlueFrame(fmtServiceData))
 	}
 
-	return haBlueFrame(out.String())
+	return style.HABlueFrame(out.String())
 }
 
 type Target struct {
@@ -148,10 +148,10 @@ func (m *SubscribeMsg) String() string {
 	out := strings.Builder{}
 
 	out.WriteString(m.baseMessage.framelessStringWithType())
-	out.WriteString(haBlue(" → "))
+	out.WriteString(style.ColorizeHABlue(" → "))
 	out.WriteString(style.Bold(string(m.EventType)))
 
-	return haBlueFrame(out.String())
+	return style.HABlueFrame(out.String())
 }
 
 func NewSubscribeMsg(eventType EventType) *SubscribeMsg {
@@ -191,11 +191,11 @@ func (m *ResultMsg) String() string {
 
 	resultsMap, ok := m.Result.([]interface{})
 	if ok && len(resultsMap) > 0 && len(resultsMap) < 10 {
-		out.WriteString(haBlue(" → "))
+		out.WriteString(style.ColorizeHABlue(" → "))
 		out.WriteString(fmt.Sprintf("%+v", m.Result))
 	}
 
-	return " " + icon + " " + haBlueFrame(out.String())
+	return " " + icon + " " + style.HABlueFrame(out.String())
 }
 
 type ErrorResult struct {

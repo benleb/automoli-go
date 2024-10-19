@@ -226,7 +226,7 @@ func (r *Room) lightsOn() []homeassistant.EntityID {
 	onLights := make([]homeassistant.EntityID, 0)
 
 	for _, light := range r.Lights {
-		if r.ha.GetState(light).State == "on" {
+		if entityState := r.ha.GetState(light); entityState != nil && entityState.State == "on" {
 			onLights = append(onLights, light)
 		}
 	}
@@ -499,7 +499,7 @@ func (r *Room) GetFmtRoomConfig() string {
 		friendlyName := r.ha.FriendlyName(light)
 		name := fmt.Sprintf("%s | %s", friendlyName, light.FmtShort())
 
-		if r.ha.GetState(light).State == "on" {
+		if entityState := r.ha.GetState(light); entityState != nil && entityState.State == "on" {
 			lightsList = append(lightsList, listItemOn(name))
 		} else {
 			lightsList = append(lightsList, listItemStyle.UnsetWidth().Render(name))
@@ -522,7 +522,7 @@ func (r *Room) GetFmtRoomConfig() string {
 		friendlyName := r.ha.FriendlyName(sensor)
 		name := fmt.Sprintf("%s | %s", friendlyName, sensor.FmtShort())
 
-		if r.ha.GetState(sensor).State == "on" {
+		if entityState := r.ha.GetState(sensor); entityState != nil && entityState.State == "on" {
 			sensorsList = append(sensorsList, listItemMotionOn(name))
 		} else {
 			sensorsList = append(sensorsList, listItem(name))

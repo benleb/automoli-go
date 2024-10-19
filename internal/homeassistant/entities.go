@@ -67,14 +67,16 @@ func NewEntityID(rawEntityID string) (*EntityID, error) {
 		return nil, EmptyEntityID()
 	}
 
-	parts := strings.SplitN(rawEntityID, ".", 2)
-	if len(parts) != 2 {
+	entityDomain, entity, found := strings.Cut(rawEntityID, ".")
+	if !found || entityDomain == "" || entity == "" {
+		log.Debugf("invalid entity id: %s | before: %s | after: %s | found: %t", rawEntityID, entityDomain, entity, found)
+
 		return nil, InvalidEntityID(rawEntityID)
 	}
 
-	if dom := domain.Domain(parts[0]); !dom.IsValid() {
-		return nil, InvalidDomain(parts[0])
-	}
+	// if dom := domain.Domain(entityDomain); !dom.IsValid() {
+	// 	return nil, InvalidDomain(entityDomain)
+	// }
 
 	return &EntityID{ID: rawEntityID}, nil
 }
@@ -90,16 +92,7 @@ func (eID *EntityID) FmtString() string {
 		return ""
 	}
 
-	parts := strings.SplitN(eID.ID, ".", 2)
-
-	if len(parts) != 2 {
-		log.Errorf("invalid entity id: %#v", eID)
-
-		return ""
-	}
-
-	dom := parts[0]
-	entityName := parts[1]
+	dom, entityName, _ := strings.Cut(eID.ID, ".")
 
 	brightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ddd")).Bold(true)
 	darkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#999")).Bold(false)
@@ -116,30 +109,18 @@ func (eID *EntityID) FmtShort() string {
 }
 
 func (eID *EntityID) FmtShortWithStyles(dotStyle lipgloss.Style, nameStyle lipgloss.Style) string {
-	parts := strings.SplitN(eID.ID, ".", 2)
-	if len(parts) != 2 {
-		log.Errorf("FmtShortWithStyles invalid entity id: %s", eID.ID)
-
-		return ""
-	}
-
-	entityName := parts[1]
+	_, entityName, _ := strings.Cut(eID.ID, ".")
 
 	return dotStyle.Render("…") + nameStyle.Render(entityName)
 }
 
 // Domain returns the domain part of the entity id.
 func (eID *EntityID) Domain() domain.Domain {
-	parts := strings.SplitN(eID.ID, ".", 2)
-	if len(parts) != 2 {
-		log.Errorf("Domain invalid entity id: %s", eID.ID)
+	rawDomain, _, _ := strings.Cut(eID.ID, ".")
 
-		return ""
-	}
-
-	dom := domain.Domain(parts[0])
+	dom := domain.Domain(rawDomain)
 	if !dom.IsValid() {
-		log.Errorf("invalid domain: %s", parts[0])
+		log.Errorf("invalid domain: %s", rawDomain)
 
 		return ""
 	}
@@ -149,12 +130,7 @@ func (eID *EntityID) Domain() domain.Domain {
 
 // EntityName returns the non-domain part (after the dot) of the entity id.
 func (eID *EntityID) EntityName() string {
-	parts := strings.SplitN(eID.ID, ".", 2)
-	if len(parts) != 2 {
-		log.Errorf("EntityName invalid entity id: %s", eID.ID)
+	_, entityName, _ := strings.Cut(eID.ID, ".")
 
-		return ""
-	}
-
-	return parts[1]
+	return entityName
 }

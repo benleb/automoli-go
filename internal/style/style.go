@@ -24,3 +24,11 @@ var (
 	DarkIndicatorLeft  = LightGray.SetString("←")
 	DarkIndicatorRight = LightGray.SetString("→")
 )
+
+func ColorizeHABlue(text string) string {
+	return HAStyle.SetString(text).Render()
+}
+
+func HABlueFrame(text string) string {
+	return ColorizeHABlue("<") + text + ColorizeHABlue(">")
+}

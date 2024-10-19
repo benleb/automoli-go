@@ -2,9 +2,7 @@ package homeassistant
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
 	"net/url"
 	"strings"
 	"sync"
@@ -23,15 +21,31 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+var (
+	connectionTimeout = time.Second * 5
+	reconnectDelay    = 7 * time.Second
+	readLimit         = int64(1024000) // 1024kb
+)
+
 type HomeAssistant struct {
-	URL   *url.URL `json:"url" yaml:"url"`
-	Token string   `json:"-"   yaml:"-"`
+	wsURL   *url.URL
+	httpURL *url.URL
+	token   string
 
 	// holds the current state of all entities and is updated on state_changed events
 	states   map[EntityID]*State
 	statesMu sync.RWMutex
 
-	eventChannel   chan *EventMsg
+	// events received from the websocket connection
+	receivedEvents chan *EventMsg
+
+	// // watchdog for last message received
+	// lastEventReceived time.Time
+
+	// nonce for message ids
+	nonce atomic.Int64
+
+	// map of the result handlers for sent messages/requests
 	resultsHandler map[int64]*chan ResultMsg
 
 	// desired subscriptions
@@ -39,52 +53,218 @@ type HomeAssistant struct {
 	// actually active subscriptions
 	activeSubscriptions mapset.Set[EventType]
 
+	// printer
 	pr *log.Logger
 
-	Conn  *websocket.Conn
-	nonce atomic.Int64
+	// websocket connection
+	conn *websocket.Conn
+	// lock for the websocket
+	wsMutex sync.Mutex
 
-	receivedMsgs atomic.Uint64
-
-	sync.RWMutex
+	// time of start
 	startTime time.Time
-
-	lastMessageReceived time.Time
 }
 
-func (ha *HomeAssistant) wsURL() string {
-	wsURL := *ha.URL
+// New creates a new HomeAssistant instance and connects to the websocket API.
+func New(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssistant, error) {
+	// create new HomeAssistant instance
+	haClient, err := createHomeAssistantInstance(rawURL, token, eventsChannel)
+	if err != nil {
+		return nil, err
+	}
 
-	switch ha.URL.Scheme {
+	haClient.setup()
+
+	haClient.pr.Printf("%s Home Assistant client started", icons.GreenTick)
+
+	return haClient, nil
+}
+
+// setup sets up the HomeAssistant client to receive events.
+func (ha *HomeAssistant) setup() {
+	initialSetup := true
+
+	// shutdown current connection
+	if ha.conn != nil {
+		initialSetup = false
+
+		ha.pr.Infof("%s reconnect - closing existing connection...", icons.Stopwatch)
+
+		// reconnect - tear down existing client
+		ha.shutdown()
+	}
+
+	for {
+		var err error
+
+		if !initialSetup {
+			ha.pr.Printf("%s trying again in %.0fs...", icons.ReconnectCircle, reconnectDelay.Seconds())
+			time.Sleep(reconnectDelay)
+		}
+
+		// setup
+		if err = ha.setupConnection(); err != nil {
+			ha.pr.Error("failed to setup HomeAssistant client: ", err)
+
+			continue
+		}
+
+		// subscribe to events
+		if err = ha.setupSubscriptions(); err != nil {
+			ha.pr.Error("failed to setup subscriptions: ", err)
+
+			continue
+		}
+
+		// success
+		break
+	}
+
+	if !initialSetup {
+		ha.pr.Printf("%s reconnected", icons.ReconnectCircle)
+	}
+}
+
+func (ha *HomeAssistant) setupConnection() error {
+	// connect to websocket API
+	ha.pr.Printf("%s connecting to %s", icons.ConnectionChain, ha.wsURL.String())
+
+	// create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, ha.wsURL.String(), &websocket.DialOptions{})
+	if err != nil {
+		return err
+	}
+
+	ha.conn = conn
+
+	ha.pr.Printf("%s connected to %s", icons.GreenTick, ha.wsURL.String())
+
+	// increase max size of a message for the connection (in bytes)
+	ha.conn.SetReadLimit(readLimit)
+
+	ha.pr.Printf("%s set read limit to %d bytes", icons.Glasses, readLimit)
+
+	// authenticate
+	if err := ha.doAuthentication(); err != nil {
+		ha.pr.Error("authentication failed: ", err)
+
+		return err
+	}
+
+	ha.pr.Printf("%s successfully authenticated", icons.Key)
+
+	return nil
+}
+
+func (ha *HomeAssistant) setupSubscriptions() error {
+	// start message handler
+	go ha.runReader()
+
+	// get initial state
+	numStatesReceived, err := ha.getStates()
+	if err != nil {
+		ha.pr.Error("failed to get states: ", err)
+
+		return err
+	} else if numStatesReceived == 0 {
+		ha.pr.Error("no states received")
+
+		return models.ErrNoStatesReceived
+	}
+
+	ha.pr.Printf("%s fetched states for %d entities", icons.Home, numStatesReceived)
+
+	// subscribe
+	eventsNotSubscribed := ha.subscriptions.Difference(ha.activeSubscriptions)
+	ha.pr.Printf("%s subscribing to %d events: %+v", icons.Sub, ha.subscriptions.Cardinality(), eventsNotSubscribed)
+
+	ha.subscribe()
+
+	return nil
+}
+
+func (ha *HomeAssistant) shutdown() {
+	// try graceful close of the existing connection
+	if ha.conn != nil {
+		ha.pr.Debugf("%s closing existing connection... %+v", icons.RedCross.Render(), ha.conn)
+
+		if err := ha.conn.Close(websocket.StatusNormalClosure, "reconnect"); err != nil {
+			ha.pr.Debugf("%s failed to gracefully close connection: %+v", icons.RedCross.Render(), err)
+
+			// force close
+			if ha.conn != nil {
+				ha.pr.Debugf("🤷%s force closing the connection... %#v", icons.Shrug, ha.conn)
+
+				_ = ha.conn.CloseNow()
+			}
+		}
+	}
+
+	// close results handler
+	for _, done := range ha.resultsHandler {
+		close(*done)
+	}
+
+	// clear active subscriptions
+	ha.activeSubscriptions.Clear()
+
+	// clear states
+	ha.states = make(map[EntityID]*State)
+
+	// clear results handler
+	ha.resultsHandler = make(map[int64]*chan ResultMsg)
+
+	// clear websocket connection
+	ha.conn = nil
+
+	// clear nonce
+	ha.nonce.Store(1337)
+}
+
+func createHomeAssistantInstance(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssistant, error) {
+	// validity check
+	if rawURL == "" {
+		return nil, models.ErrEmptyURL
+	} else if token == "" {
+		return nil, models.ErrEmptyToken
+	}
+
+	// parse http(s) URL
+	httpURL, err := url.Parse(rawURL)
+	if err != nil {
+		log.Fatal("failed to parse URL: ", err)
+	}
+
+	// create websocket URL
+	wsURL := *httpURL
+	switch httpURL.Scheme {
 	case "http":
 		wsURL.Scheme = "ws"
 	case "https":
 		wsURL.Scheme = "wss"
-
 	default:
-		ha.pr.Errorf("unsupported scheme: %s", ha.URL.Scheme)
+		log.Errorf("unsupported url scheme: %s", httpURL.Scheme)
 	}
 
-	return wsURL.JoinPath("/api/websocket").String()
-}
-
-func New(rawURL string, token string) (*HomeAssistant, error) {
-	haURL, err := url.Parse(rawURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hass := &HomeAssistant{
-		URL:   haURL,
-		Token: token,
-
-		nonce: atomic.Int64{},
+	// create new HomeAssistant instance
+	homAss := &HomeAssistant{
+		wsURL:   wsURL.JoinPath("/api/websocket"),
+		httpURL: httpURL,
+		token:   token,
 
 		states: make(map[EntityID]*State),
 
+		receivedEvents: *eventsChannel,
+
+		nonce: atomic.Int64{},
+
 		resultsHandler: make(map[int64]*chan ResultMsg),
 
-		subscriptions:       mapset.NewSet[EventType](),
+		// events we always want to subscribe to
+		subscriptions:       mapset.NewSet(EventStateChanged, EventHomeAssistantStart, EventHomeAssistantStarted),
 		activeSubscriptions: mapset.NewSet[EventType](),
 
 		pr: models.Printer.WithPrefix(lipgloss.NewStyle().Foreground(style.HABlue).Render("HA")),
@@ -92,38 +272,67 @@ func New(rawURL string, token string) (*HomeAssistant, error) {
 		startTime: time.Now(),
 	}
 
-	// initial connect & authenticate to websockets API
-	if err := hass.connectAndAuthenticate(); err != nil {
-		hass.pr.Errorf("failed to connect to server: %+v", err)
-
-		return nil, err
-	}
-
-	hass.pr.Infof("%s connected to %s", icons.ConnectionChain, haBlueFrame(hass.URL.String()))
-
-	// start message handler
-	go hass.wsReader()
-
-	// subscribe to state_changed events
-	hass.subscribe(EventStateChanged)
-
-	hass.pr.Infof("%s subscribed to %s", icons.Sub, haBlueFrame(string(EventStateChanged)))
-
-	// get initial state
-	hass.getStates()
-
-	hass.pr.Infof("%s got initial state: %d entities", icons.Home, len(hass.states))
-
-	return hass, nil
+	return homAss, nil
 }
 
-func (ha *HomeAssistant) Attributes(entityID EntityID) *Attributes {
-	state := ha.GetState(entityID)
-	if state == nil {
+// authenticate authenticates to the websocket API.
+func (ha *HomeAssistant) doAuthentication() error {
+	// authenticate
+	var versionMsg VersionMsg
+
+	// read first message...
+	err := wsjson.Read(context.TODO(), ha.conn, &versionMsg)
+	if err != nil {
+		ha.pr.Error(fmt.Errorf("failed to read message: %w", err))
+
+		return err
+	}
+
+	// ...which should be the auth_required message
+	if versionMsg.Type != "auth_required" {
+		return models.ErrUnexpectedMessageType
+	}
+
+	// reply with auth message containing a token
+	err = wsjson.Write(context.TODO(), ha.conn, NewAuthMsg(ha.token))
+	if err != nil {
+		ha.pr.Error(fmt.Errorf("failed to write message: %w", err))
+
+		return err
+	}
+
+	err = wsjson.Read(context.TODO(), ha.conn, &versionMsg)
+	if err != nil {
+		ha.pr.Error(fmt.Errorf("failed to read message: %w", err))
+
+		return err
+	}
+
+	if versionMsg.Type != "auth_ok" {
+		ha.pr.Error(fmt.Errorf("%w: %s", models.ErrUnexpectedMessageType, versionMsg.Type))
+
+		return err
+	}
+
+	return nil
+}
+
+func (ha *HomeAssistant) GetState(entityID EntityID) *State {
+	ha.statesMu.RLock()
+	state, ok := ha.states[entityID]
+	ha.statesMu.RUnlock()
+
+	if !ok {
+		ha.pr.Warnf("entity %s not found in %d states", entityID.ID, len(ha.states))
+
+		return nil
+	} else if state == nil {
+		ha.pr.Warnf("no state found for entity %s in %d states", entityID.ID, len(ha.states))
+
 		return nil
 	}
 
-	return &state.Attributes
+	return state
 }
 
 func (ha *HomeAssistant) FriendlyName(entityID EntityID) string {
@@ -133,228 +342,6 @@ func (ha *HomeAssistant) FriendlyName(entityID EntityID) string {
 	}
 
 	return state.Attributes.FriendlyName
-}
-
-func (ha *HomeAssistant) GetState(entityID EntityID) *State {
-	ha.statesMu.RLock()
-	state, ok := ha.states[entityID]
-	ha.statesMu.RUnlock()
-
-	if !ok || state == nil {
-		ha.pr.Errorf("no state found for entity %s in %d states", entityID.ID, len(ha.states))
-
-		return nil
-	}
-
-	return state
-}
-
-func (ha *HomeAssistant) subscribe(eventType EventType) {
-	// already subscribed?
-	if ha.activeSubscriptions.Contains(eventType) {
-		ha.pr.Info(
-			icons.Sub + " " + icons.GreenTick.Render() +
-				style.LightGray.Render(" already subscribed to ") +
-				style.Bold(string(eventType)) +
-				style.LightGray.Render(" events"),
-		)
-
-		return
-	}
-
-	// add to subscriptions list for re-subscribing after reconnect
-	ha.subscriptions.Add(eventType)
-	ha.activeSubscriptions.Add(eventType)
-
-	// create ws message
-	if ha.wsCall(nil, NewSubscribeMsg(eventType)) == 0 {
-		ha.pr.Warnf("❌ subscription for %+v failed", style.Bold(string(eventType)))
-	}
-}
-
-func (ha *HomeAssistant) SubscribeToEvents(eventType EventType, eventChannel *chan *EventMsg) {
-	ha.subscribe(eventType)
-	ha.eventChannel = *eventChannel
-}
-
-func (ha *HomeAssistant) reconnect() {
-	failCount := 0
-
-	for {
-		if err := ha.connectAndAuthenticate(); err != nil {
-			// exponential backoff
-			sleepInSeconds := int(math.Min(8.0, math.Pow(2, float64(failCount))))
-
-			failCount++
-
-			ha.pr.Errorf(
-				"%s connection failed (%d) %s retry in %ds %s %+v",
-				icons.ConnectionFailed,
-				failCount,
-				lipgloss.NewStyle().Foreground(style.HABlue).Render("|"),
-				sleepInSeconds,
-				lipgloss.NewStyle().Foreground(lipgloss.Color("#999")).Render("|"),
-				err,
-			)
-
-			time.Sleep(time.Duration(sleepInSeconds) * time.Second)
-		} else {
-			ha.pr.Print(icons.ConnectionOK + " reconnected")
-
-			ha.lastMessageReceived = time.Now()
-			ha.activeSubscriptions.Clear()
-
-			// re-subscribe to events
-			for _, eventType := range ha.subscriptions.ToSlice() {
-				ha.subscribe(eventType)
-			}
-
-			ha.pr.Printf("%s re-subscribed to %d events", icons.ConnectionOK, ha.subscriptions.Cardinality())
-
-			break
-		}
-	}
-}
-
-// LastMessageReceivedWatchdog checks if the last message received is older than 10s and reconnects if so.
-func (ha *HomeAssistant) LastMessageReceivedWatchdog(maxAge, checkEvery time.Duration) {
-	ha.pr.Infof("%s starting last message received watchdog | max age: %s | check every: %s", icons.Watchdog, style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
-
-	for {
-		time.Sleep(checkEvery)
-
-		since := time.Since(ha.lastMessageReceived)
-		if since > maxAge {
-			ha.pr.Warnf("❌ no message received for %s - reconnecting", style.Bold(time.Since(ha.lastMessageReceived).String()))
-
-			// reconnect
-			ha.reconnect()
-
-			continue
-		}
-
-		ha.pr.Debugf("%s %s last message received %s ago | max age: %s | next check: %s", icons.Watchdog, icons.GreenTick.Render(), style.Bold(since.Round(time.Millisecond).String()), style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
-	}
-}
-
-func (ha *HomeAssistant) wsReader() {
-	ha.pr.Infof("%s starting message handler", icons.WeightLift)
-
-	for {
-		// read message from websocket
-		if ha.Conn == nil {
-			ha.pr.Error("no connection to server")
-
-			// reconnect
-			ha.reconnect()
-		}
-
-		var msg map[string]interface{}
-
-		err := wsjson.Read(context.TODO(), ha.Conn, &msg)
-		if err != nil {
-			ha.pr.Errorf("🚘 failed to read message: %+v", err)
-
-			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-				ha.pr.Error("server closed with StatusNormalClosure - might be restarting ✊")
-			}
-
-			// reconnect
-			ha.reconnect()
-
-			continue
-		}
-
-		ha.receivedMsgs.Add(1)
-		ha.lastMessageReceived = time.Now()
-
-		if msg == nil {
-			ha.pr.Error("received nil message")
-
-			continue
-		}
-
-		msgType, ok := msg["type"].(string)
-		if !ok {
-			ha.pr.Error("received message without type")
-
-			continue
-		}
-
-		switch msgType {
-		case "event":
-			ha.handleEventMessage(msg)
-		case "result":
-			ha.handleResultMessage(msg)
-		}
-	}
-}
-
-func (ha *HomeAssistant) handleEventMessage(msg map[string]interface{}) {
-	var eventMsg EventMsg
-	var metadata *mapstructure.Metadata
-
-	// map msg to eventMsg
-	decodeHooks := mapstructure.ComposeDecodeHookFunc(mapstructure.StringToTimeHookFunc(time.RFC3339), StringToEntityIDHookFunc())
-
-	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: decodeHooks,
-		Result:     &eventMsg,
-		Metadata:   metadata,
-	})
-
-	if err := decoder.Decode(msg); err != nil {
-		ha.pr.Errorf("decoding incoming event failed: %+v", err)
-	}
-
-	// update local state
-	if eventMsg.Event.Type == EventStateChanged {
-		// update local state
-		go ha.updateStates([]*State{&eventMsg.Event.Data.NewState})
-
-		ha.pr.Debugf("✔️ updated state for %s: %+v", eventMsg.Event.Data.EntityID.ID, ha.GetState(eventMsg.Event.Data.EntityID))
-	}
-
-	// only forward subscribed events
-	if ha.subscriptions.Contains(eventMsg.Event.Type) {
-		ha.eventChannel <- &eventMsg
-	} else {
-		ha.pr.Warnf("❔ received unexpected %s event: %+v | expected events: %+v", style.Bold(string(eventMsg.Event.Type)), eventMsg, style.Bold(ha.subscriptions.String()))
-
-		return
-	}
-}
-
-func (ha *HomeAssistant) handleResultMessage(msg map[string]interface{}) {
-	var resultMsg ResultMsg
-
-	var metadata *mapstructure.Metadata
-
-	// map msg to resultMsg
-	decodeHooks := mapstructure.ComposeDecodeHookFunc(mapstructure.StringToTimeHookFunc(time.RFC3339), StringToEntityIDHookFunc())
-
-	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: decodeHooks,
-		Result:     &resultMsg,
-		Metadata:   metadata,
-	})
-
-	if err := decoder.Decode(msg); err != nil {
-		ha.pr.Error("decoding incoming event failed:", err)
-
-		return
-	}
-
-	if !resultMsg.Success {
-		ha.pr.Errorf(style.Gray(6).Render("#")+"%d | %s | %s", resultMsg.ID, resultMsg.Error.Code, resultMsg.Error.Message)
-
-		return
-	}
-
-	// is there a result (= data) to handle or just a success message?
-	if ha.resultsHandler[resultMsg.ID] != nil && resultMsg.Result != nil {
-		*ha.resultsHandler[resultMsg.ID] <- resultMsg
-	}
 }
 
 func (ha *HomeAssistant) TurnOn(targets []EntityID, serviceData map[string]interface{}) mapset.Set[*ResultMsg] {
@@ -377,9 +364,9 @@ func (ha *HomeAssistant) turnOnOff(targets []EntityID, haService service.Service
 
 		go func(target EntityID) {
 			// call service
-			result := ha.wsCallWithResponse(NewCallServiceMsg(haService, filteredServiceData, target))
-			if result == nil {
-				ha.pr.Warnf("call(s) failed | %s for %s: %+v", haService, target.ID, result)
+			result, err := ha.wsCallWithResponse(NewCallServiceMsg(haService, filteredServiceData, target))
+			if result == nil || err != nil {
+				ha.pr.Warnf("call(s) failed | %s for %s: %+v ||| %+v", haService, target.ID, result, err)
 
 				waitGroup.Done()
 
@@ -408,44 +395,65 @@ func (ha *HomeAssistant) turnOnOff(targets []EntityID, haService service.Service
 	return results
 }
 
-// filterServiceData filters the given service data map by the allowed keys.
-func filterServiceData(serviceData map[string]interface{}, allowedKeys mapset.Set[string]) map[string]interface{} {
-	if allowedKeys == nil {
-		return make(map[string]interface{})
-	}
-
-	filteredServiceData := make(map[string]interface{})
-
-	for key, value := range serviceData {
-		if allowedKeys.Contains(key) {
-			filteredServiceData[key] = value
-		} else {
-			log.Warnf("❗️ removing not allowed service data key: %s", key)
-		}
-	}
-
-	return filteredServiceData
+// SubscribeToEvent adds the given event to the subscriptions list and subscribes to it.
+func (ha *HomeAssistant) SubscribeToEvent(subscriptionEvent EventType) {
+	ha.SubscribeToEvents(mapset.NewSet[EventType](subscriptionEvent))
 }
 
-func (ha *HomeAssistant) wsCallWithResponse(msg Message) *ResultMsg {
+// SubscribeToEvents adds the given events to the subscriptions list and subscribes to them.
+func (ha *HomeAssistant) SubscribeToEvents(subscriptionEvents mapset.Set[EventType]) {
+	// subscribe to events
+	for eventType := range subscriptionEvents.Iter() {
+		// add to subscriptions list
+		ha.subscriptions.Add(eventType)
+	}
+
+	// subscribe to events
+	ha.subscribe()
+}
+
+func (ha *HomeAssistant) subscribe() {
+	// get events not subscribed to yet
+	eventsNotSubscribed := ha.subscriptions.Difference(ha.activeSubscriptions)
+
+	// subscribe to events
+	for eventType := range eventsNotSubscribed.Iter() {
+		if _, err := ha.wsCall(nil, NewSubscribeMsg(eventType)); err != nil {
+			ha.pr.Warnf("❌ subscription for %+v failed: %s", style.Bold(string(eventType)), err)
+		} else {
+			ha.pr.Infof("%s subscribed to %s", icons.Sub, style.HABlueFrame(string(eventType)))
+
+			// add to active subscriptions
+			ha.activeSubscriptions.Add(eventType)
+		}
+	}
+}
+
+func (ha *HomeAssistant) wsCallWithResponse(msg Message) (*ResultMsg, error) {
 	// create response channel
 	done := make(chan ResultMsg, 1)
 
 	// send message and wait for result
-	msgID := ha.wsCall(&done, msg)
+	msgID, err := ha.wsCall(&done, msg)
+	if err != nil {
+		ha.pr.Error(fmt.Errorf("failed to send message: %w", err))
+
+		return nil, err
+	}
+
 	result := <-done
 
 	// remove result handler
 	delete(ha.resultsHandler, msgID)
 
-	return &result
+	return &result, nil
 }
 
 // wsCall sends a message to the websocket connection and returns the used message id.
-func (ha *HomeAssistant) wsCall(done *chan ResultMsg, msg Message) int64 {
+func (ha *HomeAssistant) wsCall(done *chan ResultMsg, msg Message) (int64, error) {
 	// send message with increasing unique message id
-	ha.Lock()
-	defer ha.Unlock()
+	ha.wsMutex.Lock()
+	defer ha.wsMutex.Unlock()
 
 	// add unique message id
 	msgID := msg.SetID(ha.nonce.Add(1))
@@ -455,25 +463,30 @@ func (ha *HomeAssistant) wsCall(done *chan ResultMsg, msg Message) int64 {
 		ha.resultsHandler[msgID] = done
 	}
 
-	// send the message
-	if err := wsjson.Write(context.TODO(), ha.Conn, msg); err != nil {
-		ha.pr.Error(fmt.Errorf("failed to write message: %w", err))
-
-		return -1
+	if ha.conn == nil {
+		return 0, models.ErrNoConnectionToWriteTo
 	}
 
-	// ha.pr.Printf("🆔 sent msg with id: %d", msgID)
+	// send the message
+	if err := wsjson.Write(context.Background(), ha.conn, msg); err != nil {
+		return 0, err
+	}
 
-	return msgID
+	return msgID, nil
 }
 
-func (ha *HomeAssistant) getStates() {
+func (ha *HomeAssistant) getStates() (int, error) {
 	// create ws message
 	msg := &baseMessage{Type: "get_states"}
 	done := make(chan ResultMsg, 1)
 
 	// send message and wait for result
-	msgID := ha.wsCall(&done, msg)
+	msgID, err := ha.wsCall(&done, msg)
+	if err != nil {
+		ha.pr.Error(fmt.Errorf("failed to get states: %w", err))
+
+		return 0, err
+	}
 	result := <-done
 
 	// remove result handler
@@ -490,22 +503,26 @@ func (ha *HomeAssistant) getStates() {
 	})
 
 	// decode result
-	err := decoder.Decode(result.Result)
+	err = decoder.Decode(result.Result)
 	if err != nil {
 		ha.pr.Error("❌ decoding incoming get_states result failed:", err)
 
-		return
+		return 0, err
 	}
 
+	numStates := len(states)
+
 	// check if we received any states
-	if len(states) == 0 {
+	if numStates == 0 {
 		ha.pr.Error("❌ no states received")
 
-		return
+		return 0, models.ErrNoStatesReceived
 	}
 
 	// update local state
 	ha.updateStates(states)
+
+	return numStates, nil
 }
 
 // updateStates updates the local state with the given states.
@@ -532,120 +549,157 @@ func (ha *HomeAssistant) updateStateValue(target EntityID, state string) {
 	ha.states[target].State = state
 }
 
-// connectAndAuthenticate connects to the websocket API and handles the authentication.
-func (ha *HomeAssistant) connectAndAuthenticate() error {
-	// ensure existing connection is closed
-	if ha.Conn != nil {
-		ha.pr.Info("❌ closing existing connection... %+v", ha.Conn)
+func (ha *HomeAssistant) runReader() {
+	ha.pr.Printf("%s starting websocket reader", icons.WeightLift)
 
-		if err := ha.Conn.Close(websocket.StatusNormalClosure, "reconnecting"); err != nil {
-			ha.pr.Errorf("❌ failed to close connection: %+v", err)
+	if err := ha.wsReader(); err != nil {
+		ha.pr.Errorf("%s reader error: %+v", icons.Glasses, err)
 
-			// force close
-			if ha.Conn != nil {
-				ha.pr.Info("❌ force closing existing connection... %#v", ha.Conn)
+		// shutdown & reconnect
+		go ha.setup()
 
-				_ = ha.Conn.CloseNow()
-			} else {
-				ha.pr.Info("❌ no connection to close")
-			}
+		return
+	}
+}
+
+func (ha *HomeAssistant) wsReader() error {
+	for {
+		// read message from websocket
+		if ha.conn == nil {
+			return models.ErrNoConnectionToReadFrom
 		}
 
-		// ha.Conn = nil
+		var msg map[string]interface{}
+
+		err := wsjson.Read(context.TODO(), ha.conn, &msg)
+		if err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+				return models.ErrConnectionClosed
+			}
+
+			return err
+		}
+
+		if msg == nil {
+			ha.pr.Error("received nil message")
+
+			continue
+		}
+
+		msgType, ok := msg["type"].(string)
+		if !ok {
+			ha.pr.Errorf("received message without type: %+v", msg)
+
+			continue
+		}
+
+		switch msgType {
+		case "event":
+			ha.handleEventMessage(msg)
+		case "result":
+			ha.handleResultMessage(msg)
+
+		default:
+			ha.pr.Warnf("❔ received unexpected %s message: %+v", style.Bold(msgType), msg)
+		}
 	}
-
-	ha.Conn = nil
-
-	// create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	// connect to websocket API
-	conn, _, err := websocket.Dial(ctx, ha.wsURL(), &websocket.DialOptions{})
-	if err != nil {
-		return err
-	}
-
-	// set max size of a message in bytes
-	conn.SetReadLimit(1024000) // 1024kb
-
-	// authenticate
-	if err := ha.authenticate(conn, ha.Token); err != nil {
-		ha.pr.Error(fmt.Errorf("failed to authenticate: %w", err))
-
-		return err
-	}
-
-	ha.pr.Info("🔑 successfully authenticated")
-
-	// set new connection
-	ha.Conn = conn
-
-	ha.lastMessageReceived = time.Now()
-	ha.activeSubscriptions.Clear()
-
-	return nil
 }
 
-var errUnexpectedMessageType = errors.New("unexpected message type")
+func (ha *HomeAssistant) handleEventMessage(msg map[string]interface{}) {
+	var eventMsg EventMsg
+	var metadata *mapstructure.Metadata
 
-func unexpectedMsgType(msgType string) error {
-	return fmt.Errorf("%w: %s", errUnexpectedMessageType, msgType)
+	// map msg to eventMsg
+	decodeHooks := mapstructure.ComposeDecodeHookFunc(mapstructure.StringToTimeHookFunc(time.RFC3339), StringToEntityIDHookFunc())
+
+	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: decodeHooks,
+		Result:     &eventMsg,
+		Metadata:   metadata,
+	})
+
+	if err := decoder.Decode(msg); err != nil {
+		ha.pr.Errorf("decoding incoming event failed: %+v | msg: %+v", err, msg)
+
+		return
+	}
+
+	switch {
+	// update local state
+	case eventMsg.Event.Type == EventStateChanged:
+		ha.updateStates([]*State{&eventMsg.Event.Data.NewState})
+
+		ha.pr.Debugf("%s updated state for %s: %+v", icons.Tick, eventMsg.Event.Data.EntityID.ID, ha.GetState(eventMsg.Event.Data.EntityID))
+
+	// only forward subscribed events
+	case ha.subscriptions.Contains(eventMsg.Event.Type):
+		ha.receivedEvents <- &eventMsg
+
+	// home assistant start
+	case eventMsg.Event.Type == EventHomeAssistantStart || eventMsg.Event.Type == EventHomeAssistantStarted:
+		ha.pr.Printf("🚀 %s received", style.Bold(string(eventMsg.Event.Type)))
+
+		// get states
+		_, err := ha.getStates()
+		if err != nil {
+			ha.pr.Error("failed to get states: ", err)
+
+			return
+		}
+
+	// received unexpected event
+	default:
+		ha.pr.Printf("❔ received unexpected %s event: %+v | expected events: %+v", style.Bold(string(eventMsg.Event.Type)), eventMsg, style.Bold(ha.subscriptions.String()))
+	}
 }
 
-// authenticate authenticates to the websocket API.
-func (ha *HomeAssistant) authenticate(conn *websocket.Conn, token string) error {
-	// authenticate
-	var versionMsg VersionMsg
+func (ha *HomeAssistant) handleResultMessage(msg map[string]interface{}) {
+	var resultMsg ResultMsg
 
-	// read first message...
-	err := wsjson.Read(context.TODO(), conn, &versionMsg)
-	if err != nil {
-		ha.pr.Error(fmt.Errorf("failed to read message: %w", err))
+	var metadata *mapstructure.Metadata
 
-		return err
+	// map msg to resultMsg
+	decodeHooks := mapstructure.ComposeDecodeHookFunc(mapstructure.StringToTimeHookFunc(time.RFC3339), StringToEntityIDHookFunc())
+
+	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: decodeHooks,
+		Result:     &resultMsg,
+		Metadata:   metadata,
+	})
+
+	if err := decoder.Decode(msg); err != nil {
+		ha.pr.Errorf("decoding incoming event failed: %+v | msg: %+v", err, msg)
+
+		return
 	}
 
-	// ...which should be the auth_required message
-	if versionMsg.Type != "auth_required" {
-		ha.pr.Error(unexpectedMsgType(versionMsg.Type))
+	if !resultMsg.Success {
+		ha.pr.Errorf(style.Gray(6).Render("#")+"%d | %s | %s", resultMsg.ID, resultMsg.Error.Code, resultMsg.Error.Message)
 
-		return err
+		return
 	}
 
-	// reply with auth message containing a token
-	err = wsjson.Write(context.TODO(), conn, NewAuthMsg(token))
-	if err != nil {
-		ha.pr.Error(fmt.Errorf("failed to write message: %w", err))
-
-		return err
+	// is there a result (= data) to handle or just a success message?
+	if ha.resultsHandler[resultMsg.ID] != nil && resultMsg.Result != nil {
+		*ha.resultsHandler[resultMsg.ID] <- resultMsg
 	}
-
-	err = wsjson.Read(context.TODO(), conn, &versionMsg)
-	if err != nil {
-		ha.pr.Error(fmt.Errorf("failed to read message: %w", err))
-
-		return err
-	}
-
-	if versionMsg.Type != "auth_ok" {
-		ha.pr.Error(unexpectedMsgType(versionMsg.Type))
-
-		return err
-	}
-
-	// update counter
-	// ha.sentMsgs.Add(1)
-	ha.receivedMsgs.Add(2)
-
-	return nil
 }
 
-func haBlue(text string) string {
-	// return style.HAStyle.Copy().SetString(text).Render()
-	return style.HAStyle.SetString(text).Render()
-}
+// filterServiceData filters the given service data map by the allowed keys.
+func filterServiceData(serviceData map[string]interface{}, allowedKeys mapset.Set[string]) map[string]interface{} {
+	if allowedKeys == nil {
+		return make(map[string]interface{})
+	}
 
-func haBlueFrame(text string) string {
-	return haBlue("<") + text + haBlue(">")
+	filteredServiceData := make(map[string]interface{})
+
+	for key, value := range serviceData {
+		if allowedKeys.Contains(key) {
+			filteredServiceData[key] = value
+		} else {
+			log.Warnf("❗️ removing not allowed service data key: %s", key)
+		}
+	}
+
+	return filteredServiceData
 }
