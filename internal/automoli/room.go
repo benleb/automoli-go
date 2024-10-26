@@ -12,7 +12,9 @@ import (
 
 	"github.com/benleb/automoli-go/internal/homeassistant"
 	"github.com/benleb/automoli-go/internal/icons"
+	"github.com/benleb/automoli-go/internal/models"
 	"github.com/benleb/automoli-go/internal/models/daytime"
+	"github.com/benleb/automoli-go/internal/models/domain"
 	"github.com/benleb/automoli-go/internal/models/flash"
 	"github.com/benleb/automoli-go/internal/models/service"
 	"github.com/benleb/automoli-go/internal/style"
@@ -634,7 +636,7 @@ func (r *Room) eventHandler(event *homeassistant.EventMsg) {
 
 	// check if the conditions to turn on the lights are fulfilled
 	if ok, err := r.canTurnOnLights(); !ok {
-		r.pr.Infof("%s %s | turn on conditions not fulfilled | %s", icons.Block, service.TurnOn.FmtStringStriketrough(), err)
+		r.pr.Infof("%s %s | %s", icons.Block, service.TurnOn.FmtStringStriketrough(), err)
 
 		return
 	}

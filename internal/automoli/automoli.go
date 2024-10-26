@@ -3,7 +3,6 @@ package automoli
 import (
 	"crypto/sha256"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -68,6 +67,7 @@ type AutoMoLi struct {
 func New() *AutoMoLi {
 	coloredAppName := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")).SetString(AppName)
 
+	// create AutoMoLi instance
 	aml := &AutoMoLi{
 		Config: &Config{
 			StatsInterval: viper.GetDuration("automoli.defaults.stats_interval"),
@@ -93,7 +93,7 @@ func New() *AutoMoLi {
 
 	// unmarshal global configuration
 	if err := viper.UnmarshalKey("automoli", &aml.Config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(mapstructure.StringToTimeDurationHookFunc(), homeassistant.StringToEntityIDHookFunc()))); err != nil {
-		aml.Pr.With("err", err).Error("decoding default room config failed")
+		aml.Pr.With("err", err).Error("decoding automoli configuration failed")
 
 		return nil
 	}
@@ -119,16 +119,14 @@ func New() *AutoMoLi {
 		return nil
 	}
 
-	rooms := parseRooms(aml, roomConfig)
-	if len(rooms) == 0 {
+	// parse rooms from config file
+	if aml.rooms = parseRooms(aml, roomConfig); len(aml.rooms) == 0 {
 		aml.Pr.Errorf("no valid rooms found - room config: %+v", roomConfig...)
 
 		return nil
 	}
 
-	aml.rooms = rooms
-
-	// collect all trigger events &
+	// collect all trigger events & create room -> event mapping
 	for _, room := range aml.rooms {
 		// subscribe to xiaomi motion events
 		room.TriggerEvents.Add(homeassistant.EventXiaomiMotion)
@@ -138,6 +136,7 @@ func New() *AutoMoLi {
 			room.TriggerEvents.Add(homeassistant.EventStateChanged)
 		}
 
+		// add trigger events to global set
 		aml.triggerEvents = aml.triggerEvents.Union(room.TriggerEvents)
 
 		// create a sensor -> room mapping to forward incoming events to the correct room
@@ -161,12 +160,11 @@ func New() *AutoMoLi {
 		allLights = allLights.Union(mapset.NewSet[homeassistant.EntityID](room.Lights...))
 	}
 
-	// print loaded rooms, lights & sensors
+	// create intro line with house id, rooms, lights & sensors
 	intro := strings.Builder{}
 	intro.WriteString(coloredAppName.Render())
 	intro.WriteString(" " + style.DarkDivider.String() + " ")
-
-	// magic hex code
+	// house id
 	intro.WriteString(" " + icons.Home + " ")
 	intro.WriteString(style.Bold(aml.hashedHouseID(len(aml.rooms), allLights.Cardinality(), len(aml.roomSensorEvents))) + " ")
 	// rooms
@@ -184,7 +182,15 @@ func New() *AutoMoLi {
 	intro.WriteString(" " + icons.Motion + " ")
 	intro.WriteString(style.Bold(strconv.Itoa(len(aml.roomSensorEvents))))
 	intro.WriteString(style.Gray(8).Render(" sensors "))
+	// version
+	intro.WriteString(" " + style.DarkDivider.String() + "  ")
+	intro.WriteString(style.Gray(5).Render(AppVersion))
+	if models.Printer.GetLevel() <= log.InfoLevel {
+		intro.WriteString(style.Gray(5).Render(" | " + Commit))
+		intro.WriteString(style.Gray(5).Render(" | " + CommitDate))
+	}
 
+	// print intro
 	fmt.Println(lipgloss.NewStyle().Padding(1, 0).Render(intro.String()))
 
 	// start daytime switcher

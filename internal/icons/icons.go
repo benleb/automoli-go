@@ -53,6 +53,6 @@ const (
 )
 
 var (
-	GreenTick = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).SetString(Tick)
+	GreenTick = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).SetString(" " + Tick)
 	RedCross  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).SetString(Cross)
 )

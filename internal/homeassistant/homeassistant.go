@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -74,7 +75,7 @@ func New(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssis
 
 	haClient.setup()
 
-	haClient.pr.Printf("%s Home Assistant client started", icons.GreenTick)
+	haClient.pr.Infof("%s Home Assistant client started", icons.GreenTick)
 
 	return haClient, nil
 }
@@ -143,7 +144,7 @@ func (ha *HomeAssistant) setup() {
 
 		ha.pr.Infof("%s reconnect - closing existing connection...", icons.Stopwatch)
 
-		// reconnect - tear down existing client
+		// tear down existing client
 		ha.shutdown()
 	}
 
@@ -180,10 +181,7 @@ func (ha *HomeAssistant) setup() {
 }
 
 func (ha *HomeAssistant) setupConnection() error {
-	// connect to websocket API
-	ha.pr.Printf("%s connecting to %s", icons.ConnectionChain, ha.wsURL.String())
-
-	// create context with timeout
+	// connect to websocket API (with timeout)
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 	defer cancel()
 
@@ -194,12 +192,12 @@ func (ha *HomeAssistant) setupConnection() error {
 
 	ha.conn = conn
 
-	ha.pr.Printf("%s connected to %s", icons.GreenTick, ha.wsURL.String())
+	ha.pr.Infof("%s connected to %s", icons.ConnectionChain, ha.wsURL.String())
 
 	// increase max size of a message for the connection (in bytes)
 	ha.conn.SetReadLimit(readLimit)
 
-	ha.pr.Printf("%s set read limit to %d bytes", icons.Glasses, readLimit)
+	ha.pr.Infof("%s increased message read limit to %s bytes", icons.Glasses, style.Bold(strconv.Itoa(int(readLimit))))
 
 	// authenticate
 	if err := ha.doAuthentication(); err != nil {
@@ -208,7 +206,7 @@ func (ha *HomeAssistant) setupConnection() error {
 		return err
 	}
 
-	ha.pr.Printf("%s successfully authenticated", icons.Key)
+	ha.pr.Infof("%s successfully authenticated", icons.Key)
 
 	return nil
 }
@@ -229,11 +227,11 @@ func (ha *HomeAssistant) setupSubscriptions() error {
 		return models.ErrNoStatesReceived
 	}
 
-	ha.pr.Printf("%s fetched states for %d entities", icons.Home, numStatesReceived)
+	ha.pr.Infof("%s fetched states for %s entities", icons.Home, style.Bold(strconv.Itoa(numStatesReceived)))
 
 	// subscribe
 	eventsNotSubscribed := ha.subscriptions.Difference(ha.activeSubscriptions)
-	ha.pr.Printf("%s subscribing to %d events: %+v", icons.Sub, ha.subscriptions.Cardinality(), eventsNotSubscribed)
+	ha.pr.Infof("%s subscribing to %s events: %+v", icons.Sub, style.Bold(strconv.Itoa(ha.subscriptions.Cardinality())), eventsNotSubscribed)
 
 	ha.subscribe()
 
@@ -556,7 +554,7 @@ func (ha *HomeAssistant) updateStateValue(target EntityID, state string) {
 }
 
 func (ha *HomeAssistant) runReader() {
-	ha.pr.Printf("%s starting websocket reader", icons.WeightLift)
+	ha.pr.Infof("%s starting websocket reader", icons.WeightLift)
 
 	if err := ha.wsReader(); err != nil {
 		ha.pr.Errorf("%s reader error: %+v", icons.Glasses, err)
