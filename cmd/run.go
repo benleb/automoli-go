@@ -11,6 +11,7 @@ import (
 	"github.com/benleb/automoli-go/internal/models"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,6 +29,9 @@ var runCmd = &cobra.Command{
 		fmt.Println(lipgloss.NewStyle().Padding(2, 4).Render(headerLogo))
 
 		// general log settings & style
+		lipgloss.SetColorProfile(termenv.TrueColor)
+		log.SetColorProfile(termenv.TrueColor)
+
 		var logLevel log.Level
 
 		switch {
@@ -42,15 +46,21 @@ var runCmd = &cobra.Command{
 		}
 
 		models.Printer = log.NewWithOptions(os.Stdout, log.Options{
-			// ReportTimestamp: true,
 			ReportTimestamp: false,
 			TimeFormat:      " " + "15:04:05",
 			ReportCaller:    logLevel < log.InfoLevel,
 			Level:           logLevel,
 		})
 
+		// set color profile for loggers
+		models.Printer.SetColorProfile(termenv.TrueColor)
+
 		// run automoli
-		automoli.New()
+		if aml := automoli.New(); aml == nil {
+			models.Printer.Error("failed to initialize AutoMoLi")
+
+			os.Exit(1)
+		}
 
 		// loopy mcLoopface 😵‍💫
 		select {}
