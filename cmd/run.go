@@ -83,6 +83,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("automoli.defaults.flash", "")
 	viper.SetDefault("automoli.defaults.stats_interval", "13m37s")
 
-	viper.SetDefault("homeassistant.lastMessageReceived.checkEvery", 7*time.Second)
-	viper.SetDefault("homeassistant.lastMessageReceived.maxAge", 13*time.Second)
+	// last event received watchdog
+	viper.SetDefault("homeassistant.defaults.watchdog_max_age", 17*time.Second)
+	viper.SetDefault("homeassistant.defaults.watchdog_check_every", 7*time.Second)
 }

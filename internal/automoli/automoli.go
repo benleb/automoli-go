@@ -63,8 +63,6 @@ type AutoMoLi struct {
 
 	// time when AutoMoLi was started
 	startTime time.Time
-
-	lastEventReceived time.Time
 }
 
 func New() *AutoMoLi {
@@ -290,8 +288,6 @@ func (aml *AutoMoLi) eventHandler() {
 		if room, ok := aml.roomSensorEvents[entityID][triggerEvent.Event.Type]; ok {
 			room.EventsChannel <- triggerEvent
 		}
-
-		aml.lastEventReceived = time.Now()
 
 		aml.Pr.Debugf("%s no room found for sensor %v", icons.Hae, entityID)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -38,12 +39,9 @@ type HomeAssistant struct {
 
 	// events received from the websocket connection
 	receivedEvents chan *EventMsg
-
-	// // watchdog for last message received
-	// lastEventReceived time.Time
-
-	// nonce for message ids
-	nonce atomic.Int64
+	// time the most recent event was received
+	lastEventReceived time.Time
+	lastEventTicker   *time.Ticker
 
 	// map of the result handlers for sent messages/requests
 	resultsHandler map[int64]*chan ResultMsg
@@ -80,6 +78,9 @@ func New(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssis
 	return haClient, nil
 }
 
+		lastEventReceived: time.Now(),
+		lastEventTicker:   time.NewTicker(viper.GetDuration("homeassistant.defaults.watchdog_check_every")),
+
 // setup sets up the HomeAssistant client to receive events.
 func (ha *HomeAssistant) setup() {
 	initialSetup := true
@@ -115,6 +116,9 @@ func (ha *HomeAssistant) setup() {
 
 			continue
 		}
+
+		// start watchdog for last event received
+		go ha.lastEventReceivedWatchdog(viper.GetDuration("homeassistant.defaults.watchdog_max_age"), viper.GetDuration("homeassistant.defaults.watchdog_check_every"))
 
 		// success
 		break
@@ -187,6 +191,9 @@ func (ha *HomeAssistant) setupSubscriptions() error {
 }
 
 func (ha *HomeAssistant) shutdown() {
+	// stop last event received watchdog
+	ha.lastEventTicker.Stop()
+
 	// try graceful close of the existing connection
 	if ha.conn != nil {
 		ha.pr.Debugf("%s closing existing connection... %+v", icons.RedCross.Render(), ha.conn)
@@ -602,6 +609,8 @@ func (ha *HomeAssistant) wsReader() error {
 		default:
 			ha.pr.Warnf("❔ received unexpected %s message: %+v", style.Bold(msgType), msg)
 		}
+
+		ha.lastEventReceived = time.Now()
 	}
 }
 
@@ -682,6 +691,25 @@ func (ha *HomeAssistant) handleResultMessage(msg map[string]interface{}) {
 	// is there a result (= data) to handle or just a success message?
 	if ha.resultsHandler[resultMsg.ID] != nil && resultMsg.Result != nil {
 		*ha.resultsHandler[resultMsg.ID] <- resultMsg
+	}
+}
+
+// lastEventReceivedWatchdog checks if the last event received is older than the given max age.
+func (ha *HomeAssistant) lastEventReceivedWatchdog(maxAge, checkEvery time.Duration) {
+	ha.pr.Infof("%s starting last event received watchdog | max age: %s | check every: %s", icons.Watchdog, style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
+
+	for range ha.lastEventTicker.C {
+		since := time.Since(ha.lastEventReceived)
+		if since > maxAge {
+			ha.pr.Warnf("❌ no events received for %s - reconnecting", style.Bold(time.Since(ha.lastEventReceived).String()))
+
+			// reconnect
+			go ha.setup()
+
+			return
+		}
+
+		ha.pr.Debugf("%s %s last event received %s ago | max age: %s | next check: %s", icons.Watchdog, icons.GreenTick.Render(), style.Bold(since.Round(time.Millisecond).String()), style.Bold(maxAge.String()), style.Bold(checkEvery.String()))
 	}
 }
 
