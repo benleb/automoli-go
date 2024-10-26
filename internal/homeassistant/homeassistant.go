@@ -11,6 +11,7 @@ import (
 
 	"github.com/benleb/automoli-go/internal/icons"
 	"github.com/benleb/automoli-go/internal/models"
+	"github.com/benleb/automoli-go/internal/models/domain"
 	"github.com/benleb/automoli-go/internal/models/service"
 	"github.com/benleb/automoli-go/internal/style"
 	"github.com/charmbracelet/lipgloss"
@@ -384,7 +385,7 @@ func (ha *HomeAssistant) turnOnOff(targets []EntityID, haService service.Service
 
 			if result.Success {
 				// update local state
-				if target.Domain() == "light" || target.Domain() == "switch" {
+				if target.Domain() == domain.Light || target.Domain() == domain.Switch {
 					ha.updateStateValue(target, strings.TrimPrefix(haService.String(), "turn_"))
 				}
 

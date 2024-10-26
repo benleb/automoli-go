@@ -422,13 +422,13 @@ func (r *Room) FormatDaytimeConfiguration(daytime *daytime.Daytime) string {
 
 	// case daytime.Targets != "" && daytime.Targets.Domain() == "scene":
 	// 	activeConfiguration.WriteString(roomStyle.Render(daytime.Targets.Domain().String()) + style.Gray(6).Render(".") + bright.Render(daytime.Targets.EntityName()))
-	case len(daytime.Targets) == 1 && daytime.Targets[0].Domain() == "scene":
+	case len(daytime.Targets) == 1 && daytime.Targets[0].Domain() == domain.Scene:
 		activeConfiguration.WriteString(roomStyle.Render(daytime.Targets[0].Domain().String()) + style.Gray(6).Render(".") + bright.Render(daytime.Targets[0].EntityName()))
 
 	case *daytime.BrightnessPct > 0:
 		if len(daytime.Targets) > 0 {
 			for _, target := range daytime.Targets[:1] {
-				if target.Domain() == "light" {
+				if target.Domain() == domain.Light {
 					activeConfiguration.WriteString(roomStyle.Render(target.FmtShortWithStyles(r.style, bright))) // + style.Gray(6).Render(".") + bright.Render(daytime.Target.EntityName()))
 				}
 			}
