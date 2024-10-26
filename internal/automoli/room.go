@@ -361,11 +361,12 @@ func (r *Room) turnLightsOff(timeFired time.Time) {
 func (r *Room) offSwitcher() {
 	r.pr.Debugf("%s starting off-switcher", icons.LightOff)
 
-	for {
-		timeFired := <-r.turnOffTimer.C
-
-		// check if the lights are still on (could have been turned off manually or so)
-		if !r.isLightOn() {
+	for timeFired := range r.turnOffTimer.C {
+		//
+		// turn off conditions/checks
+		switch {
+		case !r.isLightOn():
+			// 🌑 the "the lights are already off" case 🌑
 			r.pr.Info(style.LightGray.Render(icons.LightOff+" lights already") + " off")
 
 			continue

@@ -228,7 +228,7 @@ func (aml *AutoMoLi) hashedHouseID(roomCount, lightCount, sensorCount int) strin
 func (aml *AutoMoLi) statsTicker() {
 	aml.Pr.Info(icons.Stopwatch + " event counter started")
 
-	ticker := time.NewTicker(viper.GetDuration("automoli.defaults.stats_interval"))
+	statsTicker := time.NewTicker(viper.GetDuration("automoli.defaults.stats_interval"))
 
 	fmtUnit := style.LightGray.Render("/m")
 	perSecondFormat := "%3.1f"
@@ -237,7 +237,7 @@ func (aml *AutoMoLi) statsTicker() {
 		return fmt.Sprintf("%d%s%s", eventsTotal, roomStyle.Bold(true).Render("|"), fmt.Sprintf(perSecondFormat, eventsPerTime)+fmtUnit)
 	}
 
-	for range ticker.C {
+	for range statsTicker.C {
 		totalEvents := aml.eventsReceivedTotal.Load()
 		totalEventsPerTime := float64(totalEvents) / time.Since(aml.startTime).Minutes()
 

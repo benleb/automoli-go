@@ -165,7 +165,7 @@ func NewSubscribeMsg(eventType EventType) *SubscribeMsg {
 
 type EventMsg struct {
 	baseMessage `mapstructure:",squash"`
-	Event       *Event `json:"event"           mapstructure:"event"`
+	Event       *event `json:"event"           mapstructure:"event"`
 }
 
 type ResultMsg struct {

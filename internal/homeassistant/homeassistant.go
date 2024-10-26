@@ -28,6 +28,23 @@ var (
 	connectionTimeout = time.Second * 5
 	reconnectDelay    = 7 * time.Second
 	readLimit         = int64(1024000) // 1024kb
+
+	// allowedServiceData contains the allowed keys for service_data per service and domain.
+	allowedServiceData = map[service.Service]map[domain.Domain]mapset.Set[string]{
+		service.TurnOn: {
+			domain.Light:  mapset.NewSet[string]("transition", "rgb_color", "rgbw_color", "rgbww_color", "color_name", "hs_color", "xy_color", "color_temp", "kelvin", "brightness", "brightness_pct", "brightness_step", "brightness_step_pct", "white", "profile", "flash", "effect"),
+			domain.Scene:  mapset.NewSet[string]("transition"),
+			domain.Switch: mapset.NewSet[string](),
+		},
+		service.TurnOff: {
+			domain.Light:  mapset.NewSet[string]("transition", "flash"),
+			domain.Switch: mapset.NewSet[string](),
+		},
+		service.Toggle: {
+			domain.Light:  mapset.NewSet[string]("transition", "rgb_color", "rgbw_color", "rgbww_color", "color_name", "hs_color", "xy_color", "color_temp", "kelvin", "brightness", "brightness_pct", "brightness_step", "brightness_step_pct", "white", "profile", "flash", "effect"),
+			domain.Switch: mapset.NewSet[string](),
+		},
+	}
 )
 
 type HomeAssistant struct {
@@ -53,13 +70,16 @@ type HomeAssistant struct {
 	// actually active subscriptions
 	activeSubscriptions mapset.Set[EventType]
 
-	// printer
-	pr *log.Logger
+	// nonce for message ids
+	nonce atomic.Int64
 
 	// websocket connection
 	conn *websocket.Conn
 	// lock for the websocket
 	wsMutex sync.Mutex
+
+	// printer
+	pr *log.Logger
 
 	// time of start
 	startTime time.Time
@@ -68,7 +88,7 @@ type HomeAssistant struct {
 // New creates a new HomeAssistant instance and connects to the websocket API.
 func New(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssistant, error) {
 	// create new HomeAssistant instance
-	haClient, err := createHomeAssistantInstance(rawURL, token, eventsChannel)
+	haClient, err := createInstance(rawURL, token, eventsChannel)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +384,7 @@ func (ha *HomeAssistant) turnOnOff(targets []EntityID, haService service.Service
 	for _, target := range targets {
 		waitGroup.Add(1)
 
-		filteredServiceData := filterServiceData(serviceData, models.AllowedServiceData[haService][target.Domain()])
+		filteredServiceData := filterServiceData(serviceData, allowedServiceData[haService][target.Domain()])
 
 		go func(target EntityID) {
 			// call service
