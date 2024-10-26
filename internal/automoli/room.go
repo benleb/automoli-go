@@ -659,15 +659,15 @@ func (r *Room) canTurnOnLights() (bool, error) {
 	switch {
 	// check if the room/AutoMoLi in general is disabled
 	case r.aml.isDisabled():
-		return false, fmt.Errorf("disabled by: %+v", strings.Join(r.fmtDisabler(), " | "))
+		return false, fmt.Errorf("%w: %+v", models.ErrAutoMoLiDisabled, strings.Join(r.fmtDisabler(), " | "))
 
 	// check if the lights are disabled by the current daytime/light configuration
 	case r.isDisabledByLightConfiguration():
-		return false, fmt.Errorf("disabled by: %+v", r.GetActiveDaytime())
+		return false, fmt.Errorf("%w: %+v", models.ErrDaytimeDisabled, r.GetActiveDaytime())
 
 	// check if the lights are already on
 	case r.isLightOn():
-		return false, fmt.Errorf("lights already on: %+v", r.lightsOn())
+		return false, fmt.Errorf("%w: %+v", models.ErrLightAlreadyOn, r.lightsOn())
 
 	// check if the lights were just turned on (but it may have been not recognized yet)
 	case time.Since(r.lastSwitchedOn) < viper.GetDuration("automoli.defaults.relax_after_turn_on"):

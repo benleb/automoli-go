@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/benleb/automoli-go/internal/models"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -21,6 +22,6 @@ func StringToEntityIDHookFunc() mapstructure.DecodeHookFunc { //nolint:ireturn
 			return NewEntityID(rawEntityID)
 		}
 
-		return nil, InvalidEntityID(fmt.Sprint(data))
+		return nil, models.InvalidEntityIDErr(fmt.Sprint(data))
 	}
 }

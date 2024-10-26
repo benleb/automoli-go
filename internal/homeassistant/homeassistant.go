@@ -148,23 +148,21 @@ func (ha *HomeAssistant) setup() {
 	}
 
 	for {
-		var err error
-
 		if !initialSetup {
 			ha.pr.Printf("%s trying again in %.0fs...", icons.ReconnectCircle, reconnectDelay.Seconds())
 			time.Sleep(reconnectDelay)
 		}
 
 		// setup
-		if err = ha.setupConnection(); err != nil {
-			ha.pr.Error("failed to setup HomeAssistant client: ", err)
+		if err := ha.setupConnection(); err != nil {
+			ha.pr.With("err", err).Error("failed to setup connection")
 
 			continue
 		}
 
 		// subscribe to events
-		if err = ha.setupSubscriptions(); err != nil {
-			ha.pr.Error("failed to setup subscriptions: ", err)
+		if err := ha.setupSubscriptions(); err != nil {
+			ha.pr.With("err", err).Error("failed to setup subscriptions")
 
 			continue
 		}
@@ -389,7 +387,7 @@ func (ha *HomeAssistant) turnOnOff(targets []EntityID, haService service.Service
 					ha.updateStateValue(target, strings.TrimPrefix(haService.String(), "turn_"))
 				}
 
-				ha.pr.Infof("%s %s %s", icons.Call, result, icons.GreenTick.String())
+				ha.pr.Debugf("%s %s %s", icons.Call, result, icons.GreenTick.String())
 			} else {
 				ha.pr.Warnf("%s %s %s", icons.Call, result, icons.RedCross.String())
 			}
