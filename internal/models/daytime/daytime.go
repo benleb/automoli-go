@@ -50,8 +50,10 @@ type targets []homeassistant.EntityID
 // UnmarshalText implements the encoding.TextUnmarshaler interface
 // (used by mapstructure to map string/slice from the config file to a slice).
 func (t *targets) UnmarshalText(text []byte) error {
-	for _, entityID := range strings.Split(string(text), ";") {
-		*t = append(*t, *homeassistant.NewEntity(entityID))
+	for _, rawEntityID := range strings.Split(string(text), ";") {
+		if entityID, err := homeassistant.NewEntityID(rawEntityID); err == nil {
+			*t = append(*t, *entityID)
+		}
 	}
 
 	return nil
