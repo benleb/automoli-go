@@ -16,7 +16,6 @@ var (
 )
 
 func main() {
-
 	automoli.AppVersion = version
 	automoli.CommitDate = buildDate
 	automoli.Commit = commit
