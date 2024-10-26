@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/benleb/automoli-go/internal/models"
+	"github.com/benleb/automoli-go/internal/automoli"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -15,8 +15,8 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "automoli",
-	Short: models.AppIcon + " AutoMoLi",
-	Long:  models.AppIcon + " Fully automatic light management based on motion, illuminance, humidity, and other clever features…",
+	Short: automoli.AppIcon + " AutoMoLi",
+	Long:  automoli.AppIcon + " Fully automatic light management based on motion, illuminance, humidity, and other clever features…",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

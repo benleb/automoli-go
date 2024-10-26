@@ -6,7 +6,6 @@ import (
 
 	"github.com/benleb/automoli-go/internal/homeassistant"
 	"github.com/benleb/automoli-go/internal/icons"
-	"github.com/benleb/automoli-go/internal/models"
 	"github.com/benleb/automoli-go/internal/models/daytime"
 	"github.com/benleb/automoli-go/internal/style"
 	"github.com/charmbracelet/lipgloss"
@@ -117,17 +116,17 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 	// check if light & sensors are configured
 	switch {
 	case len(room.Lights) == 0:
-		room.pr.Errorf("❌ no lights configured for %+v | disabling %s for this room", style.Bold(room.Name), models.AppName)
+		room.pr.Errorf("❌ no lights configured for %+v | disabling %s for this room", style.Bold(room.Name), AppName)
 
 		return nil
 
 	case len(room.MotionSensors) == 0:
-		room.pr.Errorf("❌ no motion sensors configured for %+v | disabling %s for this room", style.Bold(room.Name), models.AppName)
+		room.pr.Errorf("❌ no motion sensors configured for %+v | disabling %s for this room", style.Bold(room.Name), AppName)
 
 		return nil
 
 	case room.findActiveDaytime() < 0:
-		room.pr.Errorf("❌ no active daytime found for %+v | disabling %s for this room", style.Bold(room.Name), models.AppName)
+		room.pr.Errorf("❌ no active daytime found for %+v | disabling %s for this room", style.Bold(room.Name), AppName)
 
 		return nil
 	}

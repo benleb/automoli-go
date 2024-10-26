@@ -18,7 +18,7 @@ import (
 // runCmd represents the run command.
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: models.AppIcon + " run AutoMoLi",
+	Short: automoli.AppIcon + " run AutoMoLi",
 
 	Run: func(_ *cobra.Command, _ []string) {
 		// print header/logo

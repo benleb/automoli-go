@@ -5,26 +5,21 @@ import (
 	"os/signal"
 
 	"github.com/benleb/automoli-go/cmd"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/benleb/automoli-go/internal/automoli"
 	"github.com/charmbracelet/log"
-	"github.com/google/gops/agent"
-	"github.com/muesli/termenv"
 )
 
-// var version = "dev"
+var (
+	version   = "dev"
+	commit    = "none"
+	buildDate = "unknown"
+)
 
 func main() {
-	if err := agent.Listen(agent.Options{
-		Addr: "0.0.0.0:56765",
-	}); err != nil {
-		log.Fatal(err)
-	}
-	// cmd.AppVersion = version
 
-	// cmd.BuildDate = buildDate
-	// cmd.BuiltBy = builtBy
-
-	lipgloss.SetColorProfile(termenv.TrueColor)
+	automoli.AppVersion = version
+	automoli.CommitDate = buildDate
+	automoli.Commit = commit
 
 	// signal handler channel
 	c := make(chan os.Signal, 1)
@@ -35,8 +30,6 @@ func main() {
 
 		// ctrl+c handler
 		log.Debugf("Got %s signal. aborting...\n", sig)
-
-		// cmd.GracefulShutdown()
 
 		os.Exit(0)
 	}()

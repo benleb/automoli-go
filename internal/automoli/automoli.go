@@ -23,6 +23,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	AppName    = "AutoMoLi"
+	AppIcon    = icons.LightOn
+	AppVersion = "dev"
+	CommitDate = "unknown"
+	Commit     = "none"
+)
+
 type AutoMoLi struct {
 	// Config holds the global configuration for AutoMoLi.
 	*Config `mapstructure:",squash"`
@@ -60,7 +68,7 @@ type AutoMoLi struct {
 }
 
 func New() *AutoMoLi {
-	coloredAppName := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")).SetString(models.AppName)
+	coloredAppName := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0099")).SetString(AppName)
 
 	aml := &AutoMoLi{
 		Config: &Config{
