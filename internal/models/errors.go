@@ -1,6 +1,9 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	// general errors.
@@ -15,4 +18,21 @@ var (
 	// home assistant errors.
 	ErrNoStatesReceived      = errors.New("no states received")
 	ErrUnexpectedMessageType = errors.New("unexpected message type")
+	ErrEmptyEntityID         = errors.New("empty entity id")
+	ErrInvalidEntityID       = errors.New("invalid entity id")
+
+	// light conditions.
+	ErrLightAlreadyOn    = errors.New("light is already on")
+	ErrLightJustTurnedOn = errors.New("light just turned on")
+	// ErrLightAlreadyOff   = errors.New("light is already off").
+	ErrAutoMoLiDisabled = errors.New("AutoMoLi is disabled")
+	ErrDaytimeDisabled  = errors.New("disabled by light configuration for this daytime")
 )
+
+func InvalidEntityIDErr(rawEntityID string) error {
+	return fmt.Errorf("%w: %s", ErrInvalidEntityID, rawEntityID)
+}
+
+func EmptyEntityIDErr() error {
+	return fmt.Errorf("%w", ErrEmptyEntityID)
+}

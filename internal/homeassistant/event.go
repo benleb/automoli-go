@@ -13,15 +13,15 @@ var (
 
 type EventType string
 
-type Event struct {
+type event struct {
 	Type      EventType    `json:"event_type" mapstructure:"event_type"`
 	Origin    string       `json:"origin"     mapstructure:"origin"`
 	TimeFired time.Time    `json:"time_fired" mapstructure:"time_fired"`
-	Context   StateContext `json:"context"    mapstructure:"context"`
-	Data      EventData    `json:"data"       mapstructure:"data"`
+	Context   stateContext `json:"context"    mapstructure:"context"`
+	Data      eventData    `json:"data"       mapstructure:"data"`
 }
 
-type EventData struct {
+type eventData struct {
 	EntityID EntityID `json:"entity_id" mapstructure:"entity_id"`
 	NewState State    `json:"new_state" mapstructure:"new_state"`
 	OldState State    `json:"old_state" mapstructure:"old_state"`
@@ -32,17 +32,17 @@ type State struct {
 	State       string       `json:"state"        mapstructure:"state"`
 	LastChanged time.Time    `json:"last_changed" mapstructure:"last_changed"`
 	LastUpdated time.Time    `json:"last_updated" mapstructure:"last_updated"`
-	Context     StateContext `json:"context"      mapstructure:"context"`
-	Attributes  Attributes   `json:"attributes"   mapstructure:"attributes"`
+	Context     stateContext `json:"context"      mapstructure:"context"`
+	Attributes  attributes   `json:"attributes"   mapstructure:"attributes"`
 }
 
-type StateContext struct {
+type stateContext struct {
 	ID       string `json:"id"        mapstructure:"id"`
 	ParentID string `json:"parent_id" mapstructure:"parent_id"`
 	UserID   string `json:"user_id"   mapstructure:"user_id"`
 }
 
-type Attributes struct {
+type attributes struct {
 	FriendlyName      string                 `json:"friendly_name"       mapstructure:"friendly_name"`
 	Icon              string                 `json:"icon"                mapstructure:"icon"`
 	DeviceClass       string                 `json:"device_class"        mapstructure:"device_class"`

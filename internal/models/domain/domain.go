@@ -1,6 +1,8 @@
 package domain
 
-import mapset "github.com/deckarep/golang-set/v2"
+import (
+	mapset "github.com/deckarep/golang-set/v2"
+)
 
 const (
 	BinarySensor Domain = "binary_sensor"
@@ -11,9 +13,9 @@ const (
 	Switch       Domain = "switch"
 )
 
-var ValidDomains = mapset.NewSet[Domain](BinarySensor, InputBoolean, Light, Scene, Sensor, Switch)
+var validDomains = mapset.NewSet(BinarySensor, InputBoolean, Light, Scene, Sensor, Switch)
 
 type Domain string
 
 func (d Domain) String() string { return string(d) }
-func (d Domain) IsValid() bool  { return ValidDomains.Contains(d) }
+func (d Domain) IsValid() bool  { return validDomains.Contains(d) }

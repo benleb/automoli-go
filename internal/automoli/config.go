@@ -178,42 +178,5 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 		currentDaytime.ServiceData = serviceData
 	}
 
-	// for _, daytime := range room.Daytimes {
-	// 	_, err := (*aml.daytimeSwitcher).Every(1).Day().At(daytime.Start.UTC().Format("15:04")).Tag(room.Name).Tag(daytime.Name).Do(func() {
-	// 		room.pr.Debugf("%s daytime switch to: %+v", icons.Alarm, daytime)
-
-	// 		// set new active daytime
-	// 		room.activeDaytimeIndex = slices.Index(room.Daytimes, daytime)
-	// 		actionDone := "set to"
-	// 		divider := style.DarkIndicatorRight
-
-	// 		// // optional immediate transition to new daytime
-	// 		// if room.transitionOnDaytimeSwitch {
-	// 		// 	actionDone = "activated"
-	// 		// 	divider = style.DarkIndicatorRight.Copy().Foreground(room.color)
-	// 		// 	// TODO transition to daytime
-	// 		// }
-
-	// 		// build daytime switch message
-	// 		daytimeSwitchMsg := strings.Builder{}
-	// 		daytimeSwitchMsg.WriteString(icons.Alarm)
-	// 		daytimeSwitchMsg.WriteString(" daytime " + actionDone + " ")
-	// 		daytimeSwitchMsg.WriteString(style.Bold(daytime.Name))
-	// 		daytimeSwitchMsg.WriteString(" " + divider.String() + " ")
-	// 		daytimeSwitchMsg.WriteString(room.FormatDaytimeConfiguration(daytime))
-
-	// 		room.pr.Print(daytimeSwitchMsg.String())
-	// 	})
-	// 	if err != nil {
-	// 		room.pr.Errorf("❌ scheduling job failed: %+v", err)
-	// 	}
-	// }
-
-	// if room.isLightOn() {
-	// 	room.pr.Infof("%s lights on! starting the timer...", icons.LightOn)
-
-	// 	room.refreshTimer()
-	// }
-
 	return room
 }

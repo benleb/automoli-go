@@ -367,16 +367,7 @@ func (r *Room) offSwitcher() {
 			r.pr.Info(style.LightGray.Render(icons.LightOff+" lights already") + " off")
 
 			continue
-		}
 
-		// // refresh the timer
-		// r.refreshTimer()
-
-		//
-		// turn off conditions/checks
-		//
-
-		switch {
 		case r.aml.isDisabled():
 			// 🚫 the disabled case 🚫
 			// print disabling entities & states
@@ -386,7 +377,7 @@ func (r *Room) offSwitcher() {
 
 		case r.IsHumidityAboveThreshold():
 			// 🚿 the shower case 🚿
-			// check if someone might taking a shower via humidity sensors
+			// check if someone might is taking a shower via humidity sensors
 			// get the current max humidity sensor
 			currentMaxHumiditySensor, currentMaxHumidity := r.currentMaxHumidity()
 
@@ -402,6 +393,7 @@ func (r *Room) offSwitcher() {
 			continue
 		}
 
+		// turn off the lights
 		r.turnLightsOff(timeFired)
 	}
 }
@@ -421,9 +413,6 @@ func (r *Room) FormatDaytimeConfiguration(daytime *daytime.Daytime) string {
 
 	// service data
 	serviceData := daytime.ServiceData
-
-	// delete "uninteresting" service data for better readability
-	// delete(serviceData, "transition")
 
 	switch {
 	case r.disabledByLightConfiguration(daytime):
@@ -682,9 +671,7 @@ func (r *Room) canTurnOnLights() (bool, error) {
 
 	// check if the lights were just turned on (but it may have been not recognized yet)
 	case time.Since(r.lastSwitchedOn) < viper.GetDuration("automoli.defaults.relax_after_turn_on"):
-		// r.pr.Infof("relax_after_turn_on: %+v < %+v = %+v ", viper.GetDuration("automoli.defaults.relax_after_turn_on"), time.Since(r.lastSwitchedOn), time.Since(r.lastSwitchedOn) < viper.GetDuration("automoli.defaults.relax_after_turn_on"))
-
-		return false, fmt.Errorf("lights just got turned on: %+v", time.Since(r.lastSwitchedOn))
+		return false, fmt.Errorf("%w: %+v", models.ErrLightJustTurnedOn, time.Since(r.lastSwitchedOn))
 	}
 
 	return true, nil

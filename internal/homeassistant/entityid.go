@@ -1,82 +1,31 @@
 package homeassistant
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/benleb/automoli-go/internal/models"
 	"github.com/benleb/automoli-go/internal/models/domain"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 )
 
 type EntityID struct {
-	// ha *HomeAssistant `mapstructure:"-"`
 	ID string `json:"entity_id" mapstructure:"entity_id"`
 }
 
-func (eID *EntityID) UnmarshalText(text []byte) error {
-	entityID, err := NewEntityID(string(text))
-	if err != nil {
-		log.Errorf("EntityName invalid entity id: %s", text)
-
-		return fmt.Errorf("%w: %s", errInvalidEntityID, text)
-	}
-
-	*eID = *entityID
-
-	return nil
-}
-
-func (eID *EntityID) MarshalText() ([]byte, error) {
-	return []byte(eID.ID), nil
-}
-
-// NewEntity returns a new entity.
-func NewEntity(rawEntityID string) *EntityID {
-	entityID, err := NewEntityID(rawEntityID)
-	if err != nil {
-		log.Errorf("NewEntityID invalid entity id: %s", rawEntityID)
-
-		return nil
-	}
-
-	return entityID
-}
-
-var (
-	errEmptyEntityID   = errors.New("empty entity id")
-	errInvalidEntityID = errors.New("invalid entity id")
-	errInvalidDomain   = errors.New("invalid domain")
-)
-
-func InvalidEntityID(rawEntityID string) error {
-	return fmt.Errorf("%w: %s", errInvalidEntityID, rawEntityID)
-}
-
-func EmptyEntityID() error {
-	return fmt.Errorf("%w", errEmptyEntityID)
-}
-
-func InvalidDomain(domain string) error {
-	return fmt.Errorf("%w: %s", errInvalidDomain, domain)
-}
-
+// NewEntityID creates a new entity id.
 func NewEntityID(rawEntityID string) (*EntityID, error) {
 	if rawEntityID == "" {
-		return nil, EmptyEntityID()
+		return nil, models.EmptyEntityIDErr()
 	}
 
 	entityDomain, entity, found := strings.Cut(rawEntityID, ".")
 	if !found || entityDomain == "" || entity == "" {
 		log.Debugf("invalid entity id: %s | before: %s | after: %s | found: %t", rawEntityID, entityDomain, entity, found)
 
-		return nil, InvalidEntityID(rawEntityID)
+		return nil, models.InvalidEntityIDErr(rawEntityID)
 	}
-
-	// if dom := domain.Domain(entityDomain); !dom.IsValid() {
-	// 	return nil, InvalidDomain(entityDomain)
-	// }
 
 	return &EntityID{ID: rawEntityID}, nil
 }
@@ -108,6 +57,7 @@ func (eID *EntityID) FmtShort() string {
 	)
 }
 
+// FmtShortWithStyles returns the entity id as pretty formatted string without domain 💄.
 func (eID *EntityID) FmtShortWithStyles(dotStyle lipgloss.Style, nameStyle lipgloss.Style) string {
 	_, entityName, _ := strings.Cut(eID.ID, ".")
 
@@ -133,4 +83,21 @@ func (eID *EntityID) EntityName() string {
 	_, entityName, _ := strings.Cut(eID.ID, ".")
 
 	return entityName
+}
+
+func (eID *EntityID) UnmarshalText(text []byte) error {
+	entityID, err := NewEntityID(string(text))
+	if err != nil {
+		log.Errorf("EntityName invalid entity id: %s", text)
+
+		return fmt.Errorf("%w: %s", models.ErrInvalidEntityID, text)
+	}
+
+	*eID = *entityID
+
+	return nil
+}
+
+func (eID *EntityID) MarshalText() ([]byte, error) {
+	return []byte(eID.ID), nil
 }

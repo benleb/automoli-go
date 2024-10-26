@@ -8,11 +8,7 @@ import (
 )
 
 func StringToEntityIDHookFunc() mapstructure.DecodeHookFunc { //nolint:ireturn
-	return func(
-		f reflect.Type,
-		targetType reflect.Type,
-		data any,
-	) (any, error) {
+	return func(f reflect.Type, targetType reflect.Type, data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}

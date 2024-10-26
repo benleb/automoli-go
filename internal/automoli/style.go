@@ -98,7 +98,7 @@ func GenerateColorFromString(seedPhrase string) lipgloss.Color {
 	// create a magic seed number to generate a random color
 	magicSeedNumber := magicColorSeed
 
-	// convert the seed phrase to runes (unicode characters)
+	// convert the seed phrase to runes (Unicode characters)
 	runes := []rune(seedPhrase)
 
 	// get something like the faculty of the seed number
