@@ -99,13 +99,14 @@ func New() *AutoMoLi {
 	}
 
 	// create homeassistant client
-	url := viper.GetString("homeassistant.url")
-	token := viper.GetString("homeassistant.token")
+	hass, err := homeassistant.New(viper.GetString("homeassistant.url"), viper.GetString("homeassistant.token"), &aml.events)
+	if err != nil {
+		aml.Pr.With("err", err).Error("creating homeassistant client failed")
 
-	// create homeassistant client
-	aml.ha = aml.createHomeAssistantSession(url, token)
+		return nil
+	}
 
-	aml.Pr.Infof("%s Home Assistant session created", icons.GreenTick)
+	aml.ha = hass
 
 	//
 	// rooms configuration
@@ -215,20 +216,6 @@ func (aml *AutoMoLi) hashedHouseID(roomCount, lightCount, sensorCount int) strin
 
 	// create a 3 char hex code from the hash
 	return fmt.Sprintf("%X", houseID)[:3]
-}
-
-func (aml *AutoMoLi) createHomeAssistantSession(url, token string) *homeassistant.HomeAssistant {
-	// create homeassistant session
-	hass, err := homeassistant.New(url, token, &aml.events)
-	if err != nil {
-		aml.Pr.Error(err)
-
-		os.Exit(1)
-	}
-
-	aml.lastEventReceived = time.Now()
-
-	return hass
 }
 
 // statsTicker prints the stats about sent/received messages in a regular interval.

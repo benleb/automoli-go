@@ -78,8 +78,59 @@ func New(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssis
 	return haClient, nil
 }
 
+func createInstance(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssistant, error) {
+	// validity check
+	if rawURL == "" {
+		return nil, models.ErrEmptyURL
+	} else if token == "" {
+		return nil, models.ErrEmptyToken
+	}
+
+	// parse http(s) URL
+	httpURL, err := url.Parse(rawURL)
+	if err != nil {
+		log.Fatal("failed to parse URL: ", err)
+	}
+
+	// create websocket URL
+	wsURL := *httpURL
+	switch httpURL.Scheme {
+	case "http":
+		wsURL.Scheme = "ws"
+	case "https":
+		wsURL.Scheme = "wss"
+	default:
+		log.Errorf("unsupported url scheme: %s", httpURL.Scheme)
+	}
+
+	// create new HomeAssistant instance
+	homAss := &HomeAssistant{
+		wsURL:   wsURL.JoinPath("/api/websocket"),
+		httpURL: httpURL,
+		token:   token,
+
+		states: make(map[EntityID]*State),
+
+		receivedEvents: *eventsChannel,
+
 		lastEventReceived: time.Now(),
 		lastEventTicker:   time.NewTicker(viper.GetDuration("homeassistant.defaults.watchdog_check_every")),
+
+		nonce: atomic.Int64{},
+
+		resultsHandler: make(map[int64]*chan ResultMsg),
+
+		// events we always want to subscribe to
+		subscriptions:       mapset.NewSet(EventStateChanged, EventHomeAssistantStart, EventHomeAssistantStarted),
+		activeSubscriptions: mapset.NewSet[EventType](),
+
+		pr: models.Printer.WithPrefix(lipgloss.NewStyle().Foreground(style.HABlue).Render("HA")),
+
+		startTime: time.Now(),
+	}
+
+	return homAss, nil
+}
 
 // setup sets up the HomeAssistant client to receive events.
 func (ha *HomeAssistant) setup() {
@@ -229,57 +280,6 @@ func (ha *HomeAssistant) shutdown() {
 
 	// clear nonce
 	ha.nonce.Store(1337)
-}
-
-func createHomeAssistantInstance(rawURL string, token string, eventsChannel *chan *EventMsg) (*HomeAssistant, error) {
-	// validity check
-	if rawURL == "" {
-		return nil, models.ErrEmptyURL
-	} else if token == "" {
-		return nil, models.ErrEmptyToken
-	}
-
-	// parse http(s) URL
-	httpURL, err := url.Parse(rawURL)
-	if err != nil {
-		log.Fatal("failed to parse URL: ", err)
-	}
-
-	// create websocket URL
-	wsURL := *httpURL
-	switch httpURL.Scheme {
-	case "http":
-		wsURL.Scheme = "ws"
-	case "https":
-		wsURL.Scheme = "wss"
-	default:
-		log.Errorf("unsupported url scheme: %s", httpURL.Scheme)
-	}
-
-	// create new HomeAssistant instance
-	homAss := &HomeAssistant{
-		wsURL:   wsURL.JoinPath("/api/websocket"),
-		httpURL: httpURL,
-		token:   token,
-
-		states: make(map[EntityID]*State),
-
-		receivedEvents: *eventsChannel,
-
-		nonce: atomic.Int64{},
-
-		resultsHandler: make(map[int64]*chan ResultMsg),
-
-		// events we always want to subscribe to
-		subscriptions:       mapset.NewSet(EventStateChanged, EventHomeAssistantStart, EventHomeAssistantStarted),
-		activeSubscriptions: mapset.NewSet[EventType](),
-
-		pr: models.Printer.WithPrefix(lipgloss.NewStyle().Foreground(style.HABlue).Render("HA")),
-
-		startTime: time.Now(),
-	}
-
-	return homAss, nil
 }
 
 // authenticate authenticates to the websocket API.
