@@ -154,6 +154,18 @@ func New() *AutoMoLi {
 		fmt.Println(room.GetFmtRoomConfig())
 	}
 
+	// start handler for incoming events from Home Assistant
+	go aml.eventHandler()
+
+	// subscribe to events from Home Assistant
+	go aml.ha.SubscribeToEvents(aml.triggerEvents)
+
+	// start daytime switcher
+	aml.daytimeSwitcher.StartAsync()
+
+	// start stats ticker regularly printing the number of received/processed events
+	go aml.statsTicker()
+
 	// get all lights from all rooms
 	allLights := mapset.NewSet[homeassistant.EntityID]()
 	for _, room := range aml.rooms {
@@ -192,18 +204,6 @@ func New() *AutoMoLi {
 
 	// print intro
 	fmt.Println(lipgloss.NewStyle().Padding(1, 0).Render(intro.String()))
-
-	// start daytime switcher
-	aml.daytimeSwitcher.StartAsync()
-
-	// start event handler
-	go aml.eventHandler()
-
-	// start stats ticker
-	go aml.statsTicker()
-
-	// subscribe to events
-	aml.ha.SubscribeToEvents(aml.triggerEvents)
 
 	return aml
 }
