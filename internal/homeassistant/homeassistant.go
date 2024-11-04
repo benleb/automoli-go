@@ -196,7 +196,7 @@ func (ha *HomeAssistant) setup() {
 	}
 
 	if !initialSetup {
-		ha.pr.Printf("%s reconnected", icons.ReconnectCircle)
+		ha.pr.Printf("%s reconnected", icons.GreenTick)
 	}
 }
 

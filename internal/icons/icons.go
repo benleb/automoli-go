@@ -26,6 +26,7 @@ const (
 
 	// daytime related messages.
 	Alarm = "⏰"
+	Timer = "⏲️"
 
 	// other messages.
 	Cross     = "✖️"
@@ -36,6 +37,7 @@ const (
 	Broom   = "🧹"
 	Door    = "🚪"
 	Glasses = "👓"
+	Hole    = "🕳"
 	Key     = "🔑"
 	Rocket  = "🚀"
 	Shrug   = "🤷‍♀️"
@@ -53,6 +55,6 @@ const (
 )
 
 var (
-	GreenTick = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).SetString(" " + Tick)
+	GreenTick = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).SetString(Tick)
 	RedCross  = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).SetString(Cross)
 )
