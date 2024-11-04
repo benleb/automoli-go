@@ -311,7 +311,7 @@ func (r *Room) turnLightsOn(triggerEvent *homeassistant.EventMsg) bool {
 }
 
 func (r *Room) turnLightsOff(timeFired time.Time) {
-	r.pr.Infof("%s %s: turninh off the lights...", icons.Checklist, service.TurnOff.FmtString())
+	r.pr.Infof("%s %s: turning off the lights...", icons.Checklist, service.TurnOff.FmtString())
 
 	activeDaytime := r.GetActiveDaytime()
 
