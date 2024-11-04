@@ -165,16 +165,18 @@ func (r *Room) findActiveDaytime() int {
 func (r *Room) refreshTimer() {
 	delay := r.GetActiveDelay()
 
-	if r.turnOffTimer == nil {
+	if r.turnOffTimer != nil {
+		r.turnOffTimer.Reset(delay)
+
+		r.pr.Debugf("%s turnOffTimer resetted | turning off the lights in %s", icons.Timer, delay)
+	} else {
 		r.turnOffTimer = time.NewTimer(delay)
 
 		// starting off switcher for this room
 		go r.offSwitcher()
-	} else {
-		r.turnOffTimer.Reset(delay)
-	}
 
-	r.pr.Debugf("⏰ timer reset | turning off the lights in %s", delay)
+		r.pr.Debugf("%s turnOffTimer created | turning off the lights in %s", icons.Timer, delay)
+	}
 }
 
 // currentMaxHumidity finds the highest humidity value of all humidity sensors in the room.
@@ -309,7 +311,7 @@ func (r *Room) turnLightsOn(triggerEvent *homeassistant.EventMsg) bool {
 }
 
 func (r *Room) turnLightsOff(timeFired time.Time) {
-	r.pr.Debugf("%s %s: validating conditions...", icons.Checklist, service.TurnOff.FmtString())
+	r.pr.Infof("%s %s: turninh off the lights...", icons.Checklist, service.TurnOff.FmtString())
 
 	activeDaytime := r.GetActiveDaytime()
 
@@ -365,11 +367,11 @@ func (r *Room) offSwitcher() {
 		//
 		// turn off conditions/checks
 		switch {
-		case !r.isLightOn():
-			// 🌑 the "the lights are already off" case 🌑
-			r.pr.Info(style.LightGray.Render(icons.LightOff+" lights already") + " off")
+		// case !r.isLightOn():
+		// 	// 🌑 the "the lights are already off" case 🌑
+		// 	r.pr.Printf(style.LightGray.Render(icons.LightOff+" lights already") + " off")
 
-			continue
+		// 	return
 
 		case r.aml.isDisabled():
 			// 🚫 the disabled case 🚫
@@ -394,6 +396,9 @@ func (r *Room) offSwitcher() {
 			r.pr.Print(notTurnedOffMsg.String())
 
 			continue
+
+		default:
+			r.pr.Infof("%s %s: conditions validated", icons.LightOff, service.TurnOff.FmtString())
 		}
 
 		// turn off the lights
