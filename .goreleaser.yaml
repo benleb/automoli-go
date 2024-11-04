@@ -65,13 +65,6 @@ changelog:
       - "^docs:"
       - "^test:"
 
-docker_manifests:
-  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
-    image_templates:
-      ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64"]
-  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
-    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
-
 kos:
   - repository: "ghcr.io/benleb/automoli-go"
     bare: true
