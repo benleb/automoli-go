@@ -3,7 +3,7 @@
 
 version: 2
 
-project_name: automoli
+project_name: automoli-go
 
 before:
   hooks:
@@ -13,7 +13,7 @@ before:
     - go generate ./...
 
 builds:
-  - id: automoli
+  - id: automoli-go
     binary: "automoli-go_{{ .Os }}_{{ .Arch }}"
     env: ["CGO_ENABLED=0"]
     flags: ["-trimpath"]
@@ -64,3 +64,20 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+docker_manifests:
+  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
+    image_templates:
+      ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64"]
+  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
+    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
+
+kos:
+  - repository: "ghcr.io/benleb/automoli-go"
+    bare: true
+    preserve_import_paths: false
+    tags:
+      - "{{.Tag}}"
+      - "{{.Version}}"
+      - latest
+    platforms: [linux/amd64, linux/arm64]
