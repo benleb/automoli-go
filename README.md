@@ -5,14 +5,14 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/benleb/automoli-go)](https://goreportcard.com/report/github.com/benleb/automoli-go) [![Go Reference](https://pkg.go.dev/badge/github.com/benleb/automoli-go.svg)](https://pkg.go.dev/github.com/benleb/automoli-go) [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/benleb/automoli-go/build.yml
 )](https://github.com/benleb/automoli-go/actions/workflows/build.yml) [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
-Fully *automatic light management* based on motion, daytime, brightness and even humidity 💦 🚿  
+Fully *automatic light management* based on motion, daytime, brightness and even humidity 💦 🚿
 
 🕓 multiple **daytimes** to define different scenes for morning, noon, ...  
 💡 supports **Hue** (for Hue Rooms/Groups) & **Home Assistant** scenes  
 🔌 switches **lights** and **plugs** (with lights)  
 ☀️ supports **illumination sensors** to switch the light just if needed  
 💦 supports **humidity sensors** as blocker (the "*shower case*")  
-🔒 **locks** the light if the light was manually turned on  
+🔒 **locks** the light if the light was manually turned on
 <!-- not yet implemented in the go version: -->
 <!-- 🔍 **automatic** discovery of **lights** and **sensors**   -->
 <!-- ⛰️ **stable** and **tested** by many people with different homes   -->  
@@ -41,7 +41,8 @@ automoli-go --help
 
 ### systemd service example
 
-this is an **example** how the [systemd service file](automoli.service) can be used for running AutoMoLi as a service. the user, group and repo/config directory can be changed to your needs.
+this is an **example** how the [systemd service file](automoli.service) can be used for running AutoMoLi as a service.
+uuser, group and repo/config directory may need to be adjusted.
 
 ```bash
 # clone repo
