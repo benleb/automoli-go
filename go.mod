@@ -3,7 +3,7 @@ module github.com/benleb/automoli-go
 go 1.23.2
 
 require (
-	github.com/charmbracelet/lipgloss v0.13.1
+	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/charmbracelet/log v0.4.0
 	github.com/coder/websocket v1.8.12
 	github.com/deckarep/golang-set/v2 v2.6.0
@@ -18,8 +18,8 @@ require (
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/charmbracelet/x/ansi v0.4.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/charmbracelet/x/ansi v0.4.5 // indirect
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
