@@ -16,12 +16,13 @@ import (
 
 type Config struct {
 	// DisabledBy is a map of entities that control the state of AutoMoLi
-	// if any entity is in state 'off' - AutoMoLi won't react to any events
+	// if any entity is in state 'off' - AutoMoLi will be treated as 'off' too (won't react to any events)
 	DisabledBy map[homeassistant.EntityID][]string `mapstructure:"disabled_by,omitempty"`
 
 	// StatsInterval is the interval in which the stats ticker will print the stats line
 	StatsInterval time.Duration `mapstructure:"stats_interval,omitempty"`
 
+	// LightConfiguration is the default light configuration for all rooms
 	daytime.LightConfiguration `mapstructure:",squash"`
 }
 
@@ -39,6 +40,9 @@ func parseRooms(aml *AutoMoLi, roomConfig []interface{}) []*Room {
 		// create a room
 		if room := newRoom(aml, rawRoom); room != nil {
 			room.aml = aml
+
+			// on (re)start, we assume that we turned on the lights if they are on
+			room.turnedOnByAutoMoLi = room.isLightOn()
 
 			// start event receiver
 			go room.eventReceiver()
@@ -69,6 +73,11 @@ func newRoom(aml *AutoMoLi, rawRoom map[string]interface{}) *Room {
 			Delay:      aml.Delay,
 			Transition: aml.Transition,
 			Flash:      aml.Flash,
+
+			ManualModeConfiguration: daytime.ManualModeConfiguration{
+				LockConfiguration: aml.LockConfiguration,
+				LockState:         aml.LockState,
+			},
 		},
 
 		TriggerEvents: mapset.NewSet[homeassistant.EventType](),

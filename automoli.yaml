@@ -8,6 +8,13 @@ automoli:
 
     verbose: false
 
+    # how AutoMoLi should behave when the lights are turned on manually
+    manual:
+        # lock the light configuration | do not switch to current daytime configuration
+        lock_configuration: true
+        # lock the light state | do not automatically turn off the lights
+        lock_state: false
+
 homeassistant:
     url: "https://hass.home.io"
     token: "eyL0L...."

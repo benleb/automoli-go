@@ -34,14 +34,28 @@ type Daytime struct {
 	ServiceData map[string]interface{} `json:"service_data,omitempty" mapstructure:"service_data,omitempty"`
 }
 
+// ManualModeConfiguration holds settings for the manual mode (lights turned on manually).
+type ManualModeConfiguration struct {
+	// LockConfiguration is a flag to lock the light configuration if the light was manually turned on
+	LockConfiguration bool `json:"lock_configuration,omitempty" mapstructure:"lock_configuration,omitempty"`
+
+	// LockState is a flag to prevent the lights from being turned off automatically if they were manually turned on
+	LockState bool `json:"lock_state,omitempty" mapstructure:"lock_state,omitempty"`
+}
+
 // LightConfiguration holds settings controlling the light behavior.
 type LightConfiguration struct {
 	//  Delay is the time after which the lights should be turned off if no motion is detected.
 	Delay time.Duration `json:"delay,omitempty" mapstructure:"delay,omitempty"`
+
 	// Transition is the transition time in seconds to slowly turn on/off the lights
 	Transition time.Duration `json:"transition,omitempty" mapstructure:"transition,omitempty"`
+
 	// Flash flashes the lights. Available options: short & long
 	Flash flash.Flash `json:"flash,omitempty" mapstructure:"flash,omitempty"`
+
+	// ManualModeConfiguration holds settings for the manual mode (lights turned on manually)
+	ManualModeConfiguration `json:"manual,omitempty" mapstructure:"manual,omitempty"`
 }
 
 // targets is a set of home assistant entity IDs.

@@ -32,6 +32,7 @@ type Room struct {
 
 	Name string `json:"name" mapstructure:"name"`
 
+	// LightConfiguration is the default light configuration for this room
 	daytime.LightConfiguration `mapstructure:",squash"`
 
 	// //  Delay is the time after which the lights should be turned off if no motion is detected.
@@ -63,6 +64,11 @@ type Room struct {
 	EventsChannel chan *homeassistant.EventMsg
 
 	TriggerEvents mapset.Set[homeassistant.EventType]
+
+	// turnedOnManually tracks if the lights were turned on manually or by AutoMoLi
+	// turnedOnManually bool
+
+	turnedOnByAutoMoLi bool
 
 	turnOffTimer *time.Timer
 
@@ -126,7 +132,7 @@ func (r *Room) findActiveDaytime() int {
 	for _, dt := range r.Daytimes {
 		// we set the proper date (today) for the daytime start time as we only
 		// get the time itself from the config. this is necessary to compare
-		// daytime start times with the current time to conviniently check which
+		// daytime start times with the current time to conveniently check which
 		// daytime is active
 		dt.Start = time.Date(now.Year(), now.Month(), now.Day(), dt.Start.Hour(), dt.Start.Minute(), 0, 0, now.Location())
 	}
@@ -222,7 +228,14 @@ func (r *Room) IsHumidityAboveThreshold() bool {
 
 // isLightOn checks if any as light configured entity in the room is on.
 func (r *Room) isLightOn() bool {
-	return len(r.lightsOn()) > 0
+	lightOn := len(r.lightsOn()) > 0
+
+	// always reset turnedOnByAutoMoLi flag if we detect that the lights are off
+	if !lightOn {
+		r.turnedOnByAutoMoLi = false
+	}
+
+	return lightOn
 }
 
 // lightsOn gets returns all lights that are currently on.
@@ -281,6 +294,9 @@ func (r *Room) turnLightsOn(triggerEvent *homeassistant.EventMsg) bool {
 	// record
 	eventToLightDuration := time.Since(triggerEvent.Event.TimeFired)
 
+	// set turnedOnByAutoMoLi flag
+	r.turnedOnByAutoMoLi = true
+
 	// construct turned on message
 	turnedOnMsg := strings.Builder{}
 	turnedOnMsg.WriteString(icons.LightOn)
@@ -334,6 +350,9 @@ func (r *Room) turnLightsOff(timeFired time.Time) {
 
 	// record
 	eventToLightDuration := time.Since(timeFired)
+
+	// reset turnedOnByAutoMoLi flag
+	r.turnedOnByAutoMoLi = false
 
 	r.lastSwitchedOff = time.Now()
 
@@ -390,10 +409,17 @@ func (r *Room) offSwitcher() {
 			notTurnedOffMsg.WriteString(icons.Bath + " ")
 			notTurnedOffMsg.WriteString(service.TurnOff.FmtStringStriketrough() + " ")
 			notTurnedOffMsg.WriteString(style.DarkDivider.String() + " ")
-			notTurnedOffMsg.WriteString(style.Bold("prevented ") + style.Gray(12).Render("by humidity sensor") + ": ")
-			notTurnedOffMsg.WriteString(currentMaxHumiditySensor.FmtShort() + "(" + strconv.FormatUint(uint64(currentMaxHumidity), 10) + "%)\n")
+			notTurnedOffMsg.WriteString(style.Bold("prevented ") + style.Gray(12).Render("by humidity sensor") + ": " + currentMaxHumiditySensor.FmtShort())
+			notTurnedOffMsg.WriteString(" (" + strconv.FormatUint(uint64(currentMaxHumidity), 10) + "%)\n")
 
 			r.pr.Print(notTurnedOffMsg.String())
+
+			continue
+
+		case r.isLightOn() && (!r.turnedOnByAutoMoLi && r.LockState):
+			// 🔒⏼ the locked state case ⏼🔒
+			// check if the lights were turned on manually and the state is locked
+			r.pr.Printf("%s %s prevented | manually turned on & state locked", icons.Lock, service.TurnOff.FmtStringStriketrough())
 
 			continue
 
@@ -673,8 +699,12 @@ func (r *Room) canTurnOnLights() (bool, error) {
 	case r.isDisabledByLightConfiguration():
 		return false, fmt.Errorf("%w: %+v", models.ErrDaytimeDisabled, r.GetActiveDaytime())
 
-	// check if the lights are already on
-	case r.isLightOn():
+	// check if the lights are already on and were turned on by AutoMoLi
+	case r.isLightOn() && r.turnedOnByAutoMoLi:
+		return false, fmt.Errorf("%w: %+v", models.ErrLightAlreadyOn, r.lightsOn())
+
+	// check if the lights are already on, not turned on by AutoMoLi but the light configuration is locked
+	case r.isLightOn() && (!r.turnedOnByAutoMoLi && r.LockConfiguration):
 		return false, fmt.Errorf("%w: %+v", models.ErrLightAlreadyOn, r.lightsOn())
 
 	// check if the lights were just turned on (but it may have been not recognized yet)

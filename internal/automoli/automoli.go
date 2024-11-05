@@ -76,6 +76,11 @@ func New() *AutoMoLi {
 				Transition: viper.GetDuration("automoli.defaults.transition"),
 				Flash:      flash.Flash(viper.GetString("automoli.defaults.flash")),
 				Delay:      viper.GetDuration("automoli.defaults.delay"),
+
+				ManualModeConfiguration: daytime.ManualModeConfiguration{
+					LockConfiguration: viper.GetBool("automoli.defaults.manual.lock_configuration"),
+					LockState:         viper.GetBool("automoli.defaults.manual.lock_state"),
+				},
 			},
 		},
 

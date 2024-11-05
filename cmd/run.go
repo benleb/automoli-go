@@ -87,6 +87,9 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("automoli.defaults.transition", 2*time.Second)
 	viper.SetDefault("automoli.defaults.flash", "")
 	viper.SetDefault("automoli.defaults.stats_interval", "13m37s")
+	// manual mode
+	viper.SetDefault("automoli.defaults.manual.lock_configuration", true)
+	viper.SetDefault("automoli.defaults.manual.lock_state", false)
 
 	// last event received watchdog
 	viper.SetDefault("homeassistant.defaults.watchdog_max_age", 17*time.Second)

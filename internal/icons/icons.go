@@ -39,6 +39,7 @@ const (
 	Glasses = "👓"
 	Hole    = "🕳"
 	Key     = "🔑"
+	Lock    = "🔒"
 	Rocket  = "🚀"
 	Shrug   = "🤷‍♀️"
 	Splash  = "💦"
