@@ -1,4 +1,4 @@
-# [![automoli](https://socialify.git.ci/benleb/automoli-go/image?description=1&font=KoHo&forks=1&language=1&logo=https%3A%2F%2Femojipedia-us.s3.dualstack.us-west-1.amazonaws.com%2Fthumbs%2F240%2Fapple%2F237%2Felectric-light-bulb_1f4a1.png&owner=1&pulls=1&stargazers=1&theme=Light)](https://github.com/benleb/ad-automoli)
+# [![automoli](https://socialify.git.ci/benleb/automoli-go/image?description=1&font=KoHo&forks=1&language=1&logo=https%3A%2F%2Femojipedia-us.s3.dualstack.us-west-1.amazonaws.com%2Fthumbs%2F240%2Fapple%2F237%2Felectric-light-bulb_1f4a1.png&owner=1&pulls=1&stargazers=1&theme=Light)](https://github.com/benleb/automoli-go)
 
 <!-- # AutoMoLi - **Auto**matic **Mo**tion **Li**ghts -->
 
