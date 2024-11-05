@@ -69,9 +69,7 @@ var (
 			Render
 )
 
-var LogoHeader = []string{headerIsom1} // , headerModular, headerRectangles}
-
-const headerIsom1 = `
+const ASCIIHeader = `
      ___           ___           ___           ___           ___           ___           ___
     /\  \         /\__\         /\  \         /\  \         /\__\         /\  \         /\__\      ___ 
    /::\  \       /:/  /         \:\  \       /::\  \       /::|  |       /::\  \       /:/  /     /\  \

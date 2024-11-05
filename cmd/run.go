@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"time"
 
@@ -24,10 +22,7 @@ var runCmd = &cobra.Command{
 
 	Run: func(_ *cobra.Command, _ []string) {
 		// print header/logo
-		randHeaderID, _ := rand.Int(rand.Reader, big.NewInt(int64(len(automoli.LogoHeader))))
-		headerLogo := automoli.LogoHeader[randHeaderID.Int64()]
-
-		fmt.Println(lipgloss.NewStyle().Padding(2, 4).Render(headerLogo))
+		fmt.Println(lipgloss.NewStyle().Padding(2, 4).Render(automoli.ASCIIHeader))
 
 		// general log settings & style
 		lipgloss.SetColorProfile(termenv.TrueColor)
