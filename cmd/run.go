@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -34,6 +35,7 @@ var runCmd = &cobra.Command{
 
 		var logLevel log.Level
 
+		// set log level
 		switch {
 		case viper.GetBool("automoli.debug"):
 			logLevel = log.DebugLevel
@@ -45,8 +47,11 @@ var runCmd = &cobra.Command{
 			logLevel = log.WarnLevel
 		}
 
+		// report timestamps only when run in docker, otherwise we rely on systemd journald or similar
+		reportTimestamp := runningInDocker()
+
 		models.Printer = log.NewWithOptions(os.Stdout, log.Options{
-			ReportTimestamp: false,
+			ReportTimestamp: reportTimestamp,
 			TimeFormat:      " " + "15:04:05",
 			ReportCaller:    logLevel < log.InfoLevel,
 			Level:           logLevel,
@@ -87,3 +92,22 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("homeassistant.defaults.watchdog_max_age", 17*time.Second)
 	viper.SetDefault("homeassistant.defaults.watchdog_check_every", 7*time.Second)
 }
+
+// // runningViaSystemd checks if the process is running via systemd.
+// func runningViaSystemd() bool {
+// 	return os.Getenv("INVOCATION_ID") != ""
+// }
+
+// runningInDocker checks if the process is running in a docker container.
+func runningInDocker() bool {
+	_, err := os.Stat("/.dockerenv")
+
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+// // runningInKubernetes checks if the process is running in a kubernetes cluster.
+// func runningInKubernetes() bool {
+// 	_, err := os.Stat("/var/run/secrets/kubernetes.io")
+
+// 	return !errors.Is(err, os.ErrNotExist)
+// }
